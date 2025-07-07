@@ -19,12 +19,13 @@ def is_substring_in_string(substrings: list, main_str: str) -> bool:
 @router.message(F.chat.type.in_({ChatType.SUPERGROUP}))
 async def delete_messages(msg: Message, bot: Bot):
     chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
+    message_text = msg.text if msg.text else " "
     # get the message author object to see if they, maybe, have permissions to send the message
 
     is_admin = False
     is_decorative_admin = False
 
-    if chat_member.user.id == 653632008 and "///" in msg.text:
+    if chat_member.user.id == 653632008 and "///" in message_text:
         is_admin = True
 
     elif chat_member.status in ['administrator', 'creator']:
@@ -55,7 +56,7 @@ async def delete_messages(msg: Message, bot: Bot):
 
     # set a reaction if message was something to be deleted but was not because admin
     if message_has_to_be_deleted and is_admin:
-        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was something to be deleted, but they are admin.\nThey said:\n{msg.text}\n')
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was something to be deleted, but they are admin.\nThey said:\n{message_text}\n')
         await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
                                      reaction=[ReactionTypeEmoji(emoji="❤️")]))
 
@@ -86,7 +87,7 @@ async def delete_messages(msg: Message, bot: Bot):
             f"ЕСЛИ ТЕБЯ ИНТЕРЕСУЕТ СОХРАНИТЬ СВОЁ СООБЩЕНИЕ,\n"
             f"ДЕРЖИ.\n"
             f"НО БУДЬ БЫСТР — ОНО ИСЧЕЗНЕТ ЧЕРЕЗ 30 СЕКУНД.\n"
-            f'<blockquote>{msg.text}</blockquote>\n\n'
+            f'<blockquote>{message_text}</blockquote>\n\n'
             f"ТВОЙ ГОЛОС НЕ МОЖЕТ ПРОИЗНОСИТЬ СЛОВА.\n"
             f"НО НЕ ПУГАЙСЯ.\n"
             f"ЧЕРЕЗ 30 СЕКУНД ЭТО ОГРАНИЧЕНИЕ БУДЕТ СНЯТО.\n\n"
@@ -94,7 +95,7 @@ async def delete_messages(msg: Message, bot: Bot):
         await msg.delete()
 
         print(
-            f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was deleted.\nThey said:\n{msg.text}\n')
+            f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was deleted.\nThey said:\n{message_text}\n')
 
         await asyncio.sleep(30)
 
@@ -116,30 +117,30 @@ async def delete_messages(msg: Message, bot: Bot):
         "много букав",
         "лень читать"
     ]
-    if is_substring_in_string(very_interesting_triggers, msg.text.lower()):
+    if is_substring_in_string(very_interesting_triggers, message_text.lower()):
         await msg.reply("ОЧЕНЬ\nИНТЕРЕСНО.")
-        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered VERY INTERESTING; they said\n{msg.text}\n')
-    # elif msg.text == "здравствуйте это главный фанат крюзи\nя вас одобряю\nдо свидания":
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered VERY INTERESTING; they said\n{message_text}\n')
+    # elif message_text == "здравствуйте это главный фанат крюзи\nя вас одобряю\nдо свидания":
     #     await msg.reply("ОЧЕНЬ\nИНТЕРЕСНО.")
-    #     print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered KRUSIE; they said\n{msg.text}\n')
+    #     print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered KRUSIE; they said\n{message_text}\n')
 
     # moderator_bot_id = 5226378684 # iris deep purple
     # if msg.from_user.id == moderator_bot_id:
     if is_admin:
-        if msg.text.startswith("варн"):
+        if message_text.startswith("варн"):
             await msg.reply("КАК ЖАЛЬ ЧТО\nУЧАСТНИКИ ЭКСПЕРИМЕНТА\nРУШАТ ЕГО ПОРЯДОК.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered WARN; they said\n{msg.text}\n')
-        elif msg.text.startswith("снять варн"):
+            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered WARN; they said\n{message_text}\n')
+        elif message_text.startswith("снять варн"):
             await msg.reply("ОЧЕНЬ ИНТЕРЕСНОЕ ПОВЕДЕНИЕ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered UNWARN; they said\n{msg.text}\n')
-        elif msg.text.startswith("мут"):
+            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered UNWARN; they said\n{message_text}\n')
+        elif message_text.startswith("мут"):
             await msg.reply("КАЖЕТСЯ, КТО-ТО СОРВАЛ ГОЛОС.\nВОЗВРАЩАЙСЯ, КОГДА БУДЕШЬ,\nМММ... ПОСПОКОЙНЕЙ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered MUTE; they said\n{msg.text}\n')
-        elif msg.text.startswith("бан"):
+            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered MUTE; they said\n{message_text}\n')
+        elif message_text.startswith("бан"):
             await msg.reply("НЕКОТОРЫМ\nК СОЖАЛЕНИЮ\nЛУЧШЕ НЕ УЧАВСТВОВАТЬ В ЭКСПЕРИМЕНТЕ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered BAN; they said\n{msg.text}\n')
+            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered BAN; they said\n{message_text}\n')
 
     if msg.is_automatic_forward:
-        if "загор" in msg.text.lower():
-            await msg.reply("КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\nЗАГОР.\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered ZAGOR; they said\n{msg.text}\n')
+        if "загор" in message_text.lower():
+            await msg.reply("КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\nЗАГОР.\n\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ.")
+            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered ZAGOR; they said\n{message_text}\n')
