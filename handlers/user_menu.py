@@ -6,8 +6,10 @@ from aiogram.methods import SetMessageReaction
 from aiogram.types import Message
 from aiogram.types.reaction_type_emoji import ReactionTypeEmoji
 from data import permissions
+from db.db import Data
 
 router = Router()
+db = Data()
 
 def is_substring_in_string(substrings: list, main_str: str) -> bool:
     for s in substrings:
@@ -66,33 +68,45 @@ async def delete_messages(msg: Message, bot: Bot):
 
 
     if message_has_to_be_deleted:
-        if not is_decorative_admin:
-            await bot.restrict_chat_member(
-                chat_id=msg.chat.id,
-                user_id=msg.from_user.id,
-                permissions=permissions.mute_permissions,
-                until_date=int(datetime.datetime.now().timestamp()) + 31
-            )  # mutes the member for 30 seconds (telegram's lowest time for muting)
-
         # the message to be shown as explanation to what happened
         user_link = (f'<a href="tg://user?id={msg.from_user.id}">'
                      f'{msg.from_user.full_name.replace("&", "&amp;")
                      .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>')
-        sent_message = await msg.reply(
-            f'<b><u>{user_link}. ЗДЕСЬ - НЕ ЧАТ.</u></b>\n'
-            f"ЗДЕСЬ - ВСЕГО ЛИШЬ СПОСОБ ОСТАВЛЯТЬ КОММЕНТАРИИ\n"
-            f"ПОД КАНАЛОМ.\n"
-            f'НЕ ОТПРАВЛЯЙ ЗДЕСЬ СООБЩЕНИЯ, НЕ ЯВЛЯЮЩИЕСЯ ЧАСТЬЮ КОММЕНТАРИЕВ.\n'
-            f'ОНИ ЛЕТЯТ В ПУСТОТУ, КО МНЕ.\n\n'
-            f"ЕСЛИ ТЕБЯ ИНТЕРЕСУЕТ СОХРАНИТЬ СВОЁ СООБЩЕНИЕ,\n"
-            f"ДЕРЖИ.\n"
-            f"НО БУДЬ БЫСТР — ОНО ИСЧЕЗНЕТ ЧЕРЕЗ 30 СЕКУНД.\n"
-            f'<blockquote>{message_text}</blockquote>\n\n'
-            f"ТВОЙ ГОЛОС НЕ МОЖЕТ ПРОИЗНОСИТЬ СЛОВА.\n"
-            f"НО НЕ ПУГАЙСЯ.\n"
-            f"ЧЕРЕЗ 30 СЕКУНД ЭТО ОГРАНИЧЕНИЕ БУДЕТ СНЯТО.\n\n"
-            f'<b>ДЛЯ ЧАТА, ПРОШУ ТЕБЯ РАССМОТРЕТЬ ИСПОЛЬЗОВАНИЕ @utdrchat.</b>', parse_mode='HTML')
+
+        if not db.was_already_triggered(msg.from_user.id):
+            sent_message = await msg.reply(
+                f'<b><u>{user_link}. ЗДЕСЬ - НЕ ЧАТ.</u></b>\n'
+                f"ЗДЕСЬ - ВСЕГО ЛИШЬ СПОСОБ ОСТАВЛЯТЬ КОММЕНТАРИИ\n"
+                f"ПОД КАНАЛОМ.\n"
+                f'НЕ ОТПРАВЛЯЙ ЗДЕСЬ СООБЩЕНИЯ, НЕ ЯВЛЯЮЩИЕСЯ ЧАСТЬЮ КОММЕНТАРИЕВ.\n'
+                f'ОНИ ЛЕТЯТ В ПУСТОТУ, КО МНЕ.\n\n'
+                f"ЕСЛИ ТЕБЯ ИНТЕРЕСУЕТ СОХРАНИТЬ СВОЁ СООБЩЕНИЕ,\n"
+                f"ДЕРЖИ.\n"
+                f"НО БУДЬ БЫСТР — ОНО ИСЧЕЗНЕТ ЧЕРЕЗ 30 СЕКУНД.\n"
+                f'<blockquote>{message_text}</blockquote>\n\n'
+                f"ТВОЙ ГОЛОС НЕ МОЖЕТ ПРОИЗНОСИТЬ СЛОВА.\n"
+                f"НО НЕ ПУГАЙСЯ.\n"
+                f"ЧЕРЕЗ 30 СЕКУНД ЭТО ОГРАНИЧЕНИЕ БУДЕТ СНЯТО.\n\n"
+                f'<b>ДЛЯ ЧАТА, ПРОШУ ТЕБЯ РАССМОТРЕТЬ ИСПОЛЬЗОВАНИЕ @utdrchat.</b>', parse_mode='HTML')
+            if not is_decorative_admin:
+                await bot.restrict_chat_member(
+                    chat_id=msg.chat.id,
+                    user_id=msg.from_user.id,
+                    permissions=permissions.mute_permissions,
+                    until_date=int(datetime.datetime.now().timestamp()) + 31
+                )  # mutes the member for 30 seconds (telegram's lowest time for muting)
+        else:
+            sent_message = await msg.reply("test")
+            if not is_decorative_admin:
+                await bot.restrict_chat_member(
+                    chat_id=msg.chat.id,
+                    user_id=msg.from_user.id,
+                    permissions=permissions.mute_permissions,
+                    until_date=int(datetime.datetime.now().timestamp()) + 600
+                )  # mutes the member for 30 seconds (telegram's lowest time for muting)
         await msg.delete()
+        db.add_data(msg.from_user.id, int(datetime.datetime.now().timestamp()) + 3600, 1)
+
 
         print(
             f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was deleted.\nThey said:\n{message_text}\n')
