@@ -32,7 +32,8 @@ matches_triggers = {
     "гастрит": "МЕНЯ\nНЕ ТАК ЗОВУТ.",
     "гастер ссылка на рп": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
     "гастер ссылка на рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
-    "гастер рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server"
+    "гастер рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
+    "!снимаю полномочия": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя"
 }
 
 
