@@ -1,160 +1,123 @@
-import asyncio
-import datetime
+import os
+
+import utils.message_triggers
 from aiogram import Router, F, Bot
 from aiogram.enums import ChatType
-from aiogram.methods import SetMessageReaction
-from aiogram.types import Message
-from aiogram.types.reaction_type_emoji import ReactionTypeEmoji
-from data import permissions
-from db.db import Data
+from aiogram.types import Message, Chat, ChatFullInfo, FSInputFile
+from db.db import Pronouns
+from utils.check_admin import check_admin
+from utils.delete_message import delete_message
+from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, matches_triggers
 
 router = Router()
-db = Data()
+db_pronouns = Pronouns()
 
-def is_substring_in_string(substrings: list, main_str: str) -> bool:
-    for s in substrings:
-        if s in main_str:
-            return True
-    return False
 
-# ORPHAN MESSAGES DELETER [comment section cleaner]
+def trigger_message(triggers: dict, main_str: str, check_method: int = 0, is_admin = False, channel_message = False):
+    for s in triggers.keys():
+        if check_method == 0 and s in main_str and not channel_message:
+            return triggers[s]
+        elif check_method == 1 and main_str.startswith(s) and is_admin:
+            return triggers[s]
+        elif check_method == 2 and s in main_str and channel_message:
+            return triggers[s]
+        elif check_method == 3 and main_str == s and not channel_message:
+            return triggers[s]
+    return None
+
+def is_this_a_comment_section(chat: ChatFullInfo) -> bool:
+    print(chat.linked_chat_id)
+    return chat.linked_chat_id is not None
+
+
+
 @router.message(F.chat.type.in_({ChatType.SUPERGROUP}))
-async def delete_messages(msg: Message, bot: Bot):
+async def main(msg: Message, bot: Bot):
     chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
+    user_link = (f'\"<a href="tg://user?id={msg.from_user.id}">'
+                 f'{msg.from_user.full_name.replace("&", "&amp;")
+                 .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
     message_text = msg.text if msg.text else " "
-    # get the message author object to see if they, maybe, have permissions to send the message
 
-    is_admin = False
-    is_decorative_admin = False
+    is_admin = check_admin(chat_member, msg)
+    is_decorative_admin = check_admin(chat_member, msg, decorative=True)
 
-    if chat_member.user.id == 653632008 and "///" in message_text:
-        is_admin = True
+    if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
+        await delete_message(msg, bot, is_admin, is_decorative_admin)
 
-    elif chat_member.status in ['administrator', 'creator']:
-        if chat_member.status == 'administrator':
-            is_admin = (
-                    chat_member.can_delete_messages or
-                    chat_member.can_restrict_members or
-                    chat_member.can_promote_members or
-                    chat_member.can_change_info or
-                    chat_member.can_pin_messages
-            )
-            if not is_admin:
-                is_decorative_admin = True
+    # add administrating logic
+    print(msg.text)
+    # funny reply triggers
+    trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered {trigger}; they said\n{message_text}\n')
+
+    trigger = trigger_message(matches_triggers, message_text.lower(), check_method=3, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered {trigger}; they said\n{message_text}\n')
+
+
+
+    trigger = trigger_message(admin_action_triggers, message_text.lower(), check_method=1, is_admin=is_admin)
+    if trigger is not None:
+        await msg.reply(trigger)
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered {trigger}; they said\n{message_text}\n')
+
+    trigger = trigger_message(channel_post_triggers, message_text.lower(), check_method=2, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered {trigger}; they said\n{message_text}\n')
+
+    # pronouns command
+    if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мест "):
+        if message_text.lower().startswith("+местоимения "):
+            new_pronouns = message_text.lower()[len("+местоимения "):].strip()
         else:
-            is_admin = True
+            new_pronouns = message_text.lower()[len("+мест "):].strip()
 
-    if is_admin:
-        is_decorative_admin = True
-
-    message_has_to_be_deleted = False
-    if not msg.reply_to_message and not msg.is_automatic_forward:
-        # if the message is not a reply, the message is not a channel message
-        message_has_to_be_deleted = True
-
-    # if the message is a reply to the bot's message
-    elif msg.reply_to_message and msg.reply_to_message.from_user.id == bot.id:
-        await msg.delete()
-
-    # set a reaction if message was something to be deleted but was not because admin
-    if message_has_to_be_deleted and is_admin:
-        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was something to be deleted, but they are admin.\nThey said:\n{message_text}\n')
-        await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
-                                     reaction=[ReactionTypeEmoji(emoji="❤️")]))
-
-    if is_admin:
-        message_has_to_be_deleted = False
-
-
-
-    if message_has_to_be_deleted:
-        # the message to be shown as explanation to what happened
-        user_link = (f'<a href="tg://user?id={msg.from_user.id}">'
-                     f'{msg.from_user.full_name.replace("&", "&amp;")
-                     .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>')
-
-        if not db.was_already_triggered(msg.from_user.id):
-            sent_message = await msg.reply(
-                f'<b><u>{user_link}. ЗДЕСЬ - НЕ ЧАТ.</u></b>\n'
-                f"ЗДЕСЬ - ВСЕГО ЛИШЬ СПОСОБ ОСТАВЛЯТЬ КОММЕНТАРИИ\n"
-                f"ПОД КАНАЛОМ.\n"
-                f'НЕ ОТПРАВЛЯЙ ЗДЕСЬ СООБЩЕНИЯ, НЕ ЯВЛЯЮЩИЕСЯ ЧАСТЬЮ КОММЕНТАРИЕВ.\n'
-                f'ОНИ ЛЕТЯТ В ПУСТОТУ, КО МНЕ.\n\n'
-                f"ЕСЛИ ТЕБЯ ИНТЕРЕСУЕТ СОХРАНИТЬ СВОЁ СООБЩЕНИЕ,\n"
-                f"ДЕРЖИ.\n"
-                f"НО БУДЬ БЫСТР — ОНО ИСЧЕЗНЕТ ЧЕРЕЗ 30 СЕКУНД.\n"
-                f'<blockquote>{message_text}</blockquote>\n\n'
-                f"ТВОЙ ГОЛОС НЕ МОЖЕТ ПРОИЗНОСИТЬ СЛОВА.\n"
-                f"НО НЕ ПУГАЙСЯ.\n"
-                f"ЧЕРЕЗ 30 СЕКУНД ЭТО ОГРАНИЧЕНИЕ БУДЕТ СНЯТО.\n\n"
-                f'<b>ДЛЯ ЧАТА, ПРОШУ ТЕБЯ РАССМОТРЕТЬ ИСПОЛЬЗОВАНИЕ @utdrchat.</b>', parse_mode='HTML')
-            if not is_decorative_admin:
-                await bot.restrict_chat_member(
-                    chat_id=msg.chat.id,
-                    user_id=msg.from_user.id,
-                    permissions=permissions.mute_permissions,
-                    until_date=int(datetime.datetime.now().timestamp()) + 31
-                )  # mutes the member for 30 seconds (telegram's lowest time for muting)
+        if len(new_pronouns) <= 30:
+            db_pronouns.add_pronouns(msg.from_user.id, new_pronouns)
+            await msg.reply(f"{user_link}.\n{new_pronouns.upper()}.\n\nЗАМЕЧАТЕЛЬНО.\n\nДЕЙСТВИТЕЛЬНО\nЗАМЕЧАТЕЛЬНО.\n\nСПАСИБО\nЗА ТВОЁ ВРЕМЯ.", parse_mode="HTML")
         else:
-            sent_message = await msg.reply("test")
-            if not is_decorative_admin:
-                await bot.restrict_chat_member(
-                    chat_id=msg.chat.id,
-                    user_id=msg.from_user.id,
-                    permissions=permissions.mute_permissions,
-                    until_date=int(datetime.datetime.now().timestamp()) + 600
-                )  # mutes the member for 30 seconds (telegram's lowest time for muting)
-        await msg.delete()
-        db.add_data(msg.from_user.id, int(datetime.datetime.now().timestamp()) + 3600, 1)
+            await msg.reply(
+                f"{user_link}.\nМЕСТОИМЕНИЯ\nНЕ ДОЛЖНЫ ЗАНИМАТЬ БОЛЬШЕ\nЧЕМ 30 СИМВОЛОВ.",
+                parse_mode="HTML")
 
+    if message_text.lower().startswith("-местоимения") or message_text.lower().startswith("-мест"):
+        await msg.reply(
+            f"ФАЙЛ\nУДАЛЁН.",
+            parse_mode="HTML")
+        db_pronouns.rm_pronouns(msg.from_user.id)
 
-        print(
-            f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username})\'s message was deleted.\nThey said:\n{message_text}\n')
+    if message_text.lower() == "мои местоимения" or message_text.lower() == "мои мест":
+        pronouns = db_pronouns.get_pronouns(msg.from_user.id)
+        if pronouns is not None:
+            await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
+        else:
+            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
 
-        await asyncio.sleep(30)
+    if (message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "кто ты" or message_text.lower() == "ты кто") and msg.reply_to_message:
+        pronouns = db_pronouns.get_pronouns(msg.reply_to_message.from_user.id)
+        if pronouns is not None:
+            await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
+        else:
+            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
 
-        await sent_message.delete()
+    if message_text.lower() == "гастер оне/ено" or message_text.lower() == "гастер оне" or message_text.lower() == "гастер неомест":
+        await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')), caption="ОНЕ/ЕНО - НЕОМЕСТОИМЕНИЕ АВТОРСТВА @LOSTYAWOLFER,\nПРИЗВАННОЕ БЫТЬ ПОЛНОЙ АЛЬТЕРНАТИВОЙ\nАНГЛИЙСКОГО \"THEY/THEM\"\nВ ЕДИНСТВЕННОМ ЧИСЛЕ.\n\nДЛЯ НЕИЗВЕСТНЫХ ЛЮДЕЙ,\nДЛЯ ЛЮДЕЙ НЕБИНАРНЫХ...\nВЫБОР ЗА ТОБОЙ.\n\nЭТОТ ЕГО ЭКСПЕРИМЕНТ\nМНЕ КАЖЕТСЯ\nОЧЕНЬ\nОЧЕНЬ\nИНТЕРЕСНЫМ.")
 
-        if not is_decorative_admin:
-            await bot.restrict_chat_member(
-                chat_id=msg.chat.id,
-                user_id=msg.from_user.id,
-                permissions=permissions.unmute_permissions
-            )  # automatically unmute the person as soon as said message gets deleted
+    if message_text.lower() == "спойлеры":
+        await msg.reply(f"НА ДАННЫЙ МОМЕНТ,\nСПОЙЛЕРНЫЙ РЕЖИМ ОТКЛЮЧЕН.\n\nПОСЛЕДНИЙ РАЗ СПОЙЛЕРНЫЙ РЕЖИМ\nБЫЛ АКТИВЕН\n<b>13 ИЮЛЯ.</b>", parse_mode='HTML')
 
-
-    # funny replies
-    very_interesting_triggers = [
-        "ааа женщина",
-        "многа букав",
-        "много букв",
-        "много букав",
-        "лень читать"
-    ]
-    if is_substring_in_string(very_interesting_triggers, message_text.lower()):
-        await msg.reply("ОЧЕНЬ\nИНТЕРЕСНО.")
-        print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered VERY INTERESTING; they said\n{message_text}\n')
-    # elif message_text == "здравствуйте это главный фанат крюзи\nя вас одобряю\nдо свидания":
-    #     await msg.reply("ОЧЕНЬ\nИНТЕРЕСНО.")
-    #     print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered KRUSIE; they said\n{message_text}\n')
-
-    # moderator_bot_id = 5226378684 # iris deep purple
-    # if msg.from_user.id == moderator_bot_id:
-    if is_admin:
-        if message_text.startswith("варн"):
-            await msg.reply("КАК ЖАЛЬ ЧТО\nУЧАСТНИКИ ЭКСПЕРИМЕНТА\nРУШАТ ЕГО ПОРЯДОК.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered WARN; they said\n{message_text}\n')
-        elif message_text.startswith("снять варн"):
-            await msg.reply("ОЧЕНЬ ИНТЕРЕСНОЕ ПОВЕДЕНИЕ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered UNWARN; they said\n{message_text}\n')
-        elif message_text.startswith("мут"):
-            await msg.reply("КАЖЕТСЯ, КТО-ТО СОРВАЛ ГОЛОС.\nВОЗВРАЩАЙСЯ, КОГДА БУДЕШЬ,\nМММ... ПОСПОКОЙНЕЙ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered MUTE; they said\n{message_text}\n')
-        elif message_text.startswith("бан"):
-            await msg.reply("НЕКОТОРЫМ\nК СОЖАЛЕНИЮ\nЛУЧШЕ НЕ УЧАВСТВОВАТЬ В ЭКСПЕРИМЕНТЕ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered BAN; they said\n{message_text}\n')
-
-    if msg.is_automatic_forward:
-        if "загор" in message_text.lower():
-            await msg.reply("КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\nЗАГОР.\n\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ.")
-            print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered ZAGOR; they said\n{message_text}\n')
+    if message_text.lower() == "гастер команды":
+        await msg.reply(f'МОИ КОМАНДЫ.\n\n\n'
+                        f'БОТ, ГАСТЕР ИЛИ ТЕСТ - Я ОТЗОВУСЬ. ПРОВЕРКА ЖИВ ЛИ БОТ.\n\n'
+                        f'ГАСТЕР КОМАНДЫ - ПОКАЗАТЬ ЭТОТ СПИСОК.\n\n'
+                        f'МЕСТОИМЕНИЯ ИЛИ МЕСТ ИЛИ КТО ТЫ ИЛИ ТЫ КТО - В ОТВЕТ НА ЧЬЁ-ЛИБО СООБЩЕНИЕ: ПОКАЗАТЬ МЕСТОИМЕНИЯ.\n\n'
+                        f'+МЕСТОИМЕНИЯ ИЛИ +МЕСТ - ВЫСТАВИТЬ МЕСТОИМЕНИЯ СЕБЕ.\n\n'
+                        f'-МЕСТОИМЕНИЯ ИЛИ -МЕСТ - УДАЛИТЬ СВОИ МЕСТОИМЕНИЯ.\n\n'
+                        f'МОИ МЕСТОИМЕНИЯ ИЛИ МОИ МЕСТ - ПОСМОТРЕТЬ СВОИ МЕСТОИМЕНИЯ.\n\n'
+                        f'ГАСТЕР ОНЕ/ЕНО, ГАСТЕР ОНЕ, ГАСТЕР НЕОМЕСТ - ОТПРАВИТЬ ТАБЛИЦУ С ИНФОРМАЦИЕЙ ПРО НЕОМЕСТОИМЕНИЕ \"ОНЕ/ЕНО\".\n\n'
+                        f'СПОЙЛЕРЫ - ПРОВЕРИТЬ НАЛИЧИЕ СПОЙЛЕРНОГО РЕЖИМА НА ДАННЫЙ МОМЕНТ.')
