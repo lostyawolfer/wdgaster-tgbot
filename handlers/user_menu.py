@@ -100,10 +100,13 @@ async def main(msg: Message, bot: Bot):
 
     if (message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "кто ты" or message_text.lower() == "ты кто") and msg.reply_to_message:
         pronouns = db_pronouns.get_pronouns(msg.reply_to_message.from_user.id)
+        user_reply_link = (f'\"<a href="tg://user?id={msg.reply_to_message.from_user.id}">'
+                     f'{msg.reply_to_message.from_user.full_name.replace("&", "&amp;")
+                     .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
         if pronouns is not None:
-            await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
+            await msg.reply(f"МЕСТОИМЕНИЯ {user_reply_link}:\n{pronouns.upper()}.", parse_mode='HTML')
         else:
-            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
+            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
 
     if message_text.lower() == "гастер оне/ено" or message_text.lower() == "гастер оне" or message_text.lower() == "гастер неомест":
         await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')), caption="ОНЕ/ЕНО - НЕОМЕСТОИМЕНИЕ АВТОРСТВА @LOSTYAWOLFER,\nПРИЗВАННОЕ БЫТЬ ПОЛНОЙ АЛЬТЕРНАТИВОЙ\nАНГЛИЙСКОГО \"THEY/THEM\"\nВ ЕДИНСТВЕННОМ ЧИСЛЕ.\n\nДЛЯ НЕИЗВЕСТНЫХ ЛЮДЕЙ,\nДЛЯ ЛЮДЕЙ НЕБИНАРНЫХ...\nВЫБОР ЗА ТОБОЙ.\n\nЭТОТ ЕГО ЭКСПЕРИМЕНТ\nМНЕ КАЖЕТСЯ\nОЧЕНЬ\nОЧЕНЬ\nИНТЕРЕСНЫМ.")
