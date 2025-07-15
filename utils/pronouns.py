@@ -45,4 +45,4 @@ async def do_pronouns(msg):
         if pronouns is not None:
             await msg.reply(f"МЕСТОИМЕНИЯ {user_reply_link}:\n{pronouns.upper()}.", parse_mode='HTML')
         else:
-            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
+            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.\n\n[[ЭТО МОЖНО СДЕЛАТЬ КОМАНДОЙ +МЕСТ.]]", parse_mode='HTML')
