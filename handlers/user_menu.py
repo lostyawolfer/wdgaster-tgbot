@@ -1,13 +1,17 @@
 import os
+import asyncio
+import re
 
-import utils.message_triggers
 from aiogram import Router, F, Bot
-from aiogram.enums import ChatType
-from aiogram.types import Message, Chat, ChatFullInfo, FSInputFile
+from aiogram.enums import ChatType, ChatAction
+from aiogram.methods import SetMessageReaction
+from aiogram.types import Message, Chat, ChatFullInfo, FSInputFile, ReactionTypeEmoji
 from db.db import Pronouns
 from utils.check_admin import check_admin
 from utils.delete_message import delete_message
 from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, matches_triggers
+from utils.pronouns import do_pronouns
+from utils.youtube_downloader import download_youtube_video, delete_temp_file
 
 router = Router()
 db_pronouns = Pronouns()
@@ -34,9 +38,9 @@ def is_this_a_comment_section(chat: ChatFullInfo) -> bool:
 @router.message(F.chat.type.in_({ChatType.SUPERGROUP}))
 async def main(msg: Message, bot: Bot):
     chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
-    user_link = (f'\"<a href="tg://user?id={msg.from_user.id}">'
-                 f'{msg.from_user.full_name.replace("&", "&amp;")
-                 .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
+    # user_link = (f'\"<a href="tg://user?id={msg.from_user.id}">'
+    #              f'{msg.from_user.full_name.replace("&", "&amp;")
+    #              .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
     message_text = msg.text if msg.text else " "
 
     is_admin = check_admin(chat_member, msg)
@@ -45,8 +49,78 @@ async def main(msg: Message, bot: Bot):
     if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
         await delete_message(msg, bot, is_admin, is_decorative_admin)
 
-    # add administrating logic
-    print(msg.text)
+    youtube_url_match = re.search(r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/[^\s]+', message_text)
+    if youtube_url_match:
+        video_url = youtube_url_match.group(0)
+        print(f"Detected YouTube link: {video_url} from {msg.from_user.full_name}")
+
+        await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
+                                     reaction=[ReactionTypeEmoji(emoji="👾")]))
+        await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.CHOOSE_STICKER)
+
+        try:
+            video_info = await download_youtube_video(video_url)
+
+            if video_info and video_info['filepath']:
+                video_file = FSInputFile(video_info['filepath'])
+
+
+                # Prepare caption: Include title and description
+                # Keep total caption length in mind (max 1024 characters for video captions)
+                caption_parts = []
+                caption_parts.append(f"<b><u>{video_info['title']}</u></b>")  # Make title bold
+
+                # Add description if available and not empty
+                if video_info['description']:
+                    description_to_add = video_info['description']
+                    # Important: Escape HTML characters in the description itself
+                    # before wrapping it in blockquote tags, otherwise description content
+                    # like '<script>' or '&' will break the parsing.
+                    description_to_add_escaped = description_to_add.replace("&", "&amp;").replace("<", "&lt;").replace(
+                        ">", "&gt;")
+
+                    # Basic truncation example (after escaping)
+                    if len(description_to_add_escaped) > 1024:
+                        description_to_add_escaped = description_to_add_escaped[:1021] + "..."
+
+                    # Wrap the escaped description in blockquote tags
+                    caption_parts.append(f"<blockquote expandable>{description_to_add_escaped}</blockquote>")
+
+                final_caption = "\n".join(caption_parts)
+
+                # Ensure the entire caption doesn't exceed 1024 characters
+                if len(final_caption) > 1024:
+                    final_caption = final_caption[:1011] + "...</blockquote>"  # Truncate with ellipsis
+
+                await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_VIDEO)
+                sent_video = await msg.reply_video(
+                    video_file,
+                    caption=final_caption,
+                    parse_mode='HTML',  # Use HTML parse mode for bold tags and potentially timecodes
+                    duration=video_info.get('duration'),
+                    # width=720, # Optional: You can set these based on your needs or extracted info
+                    # height=480
+                    #thumbnail=thumbnail_file
+                )
+                print(f"Successfully sent video for {video_url}. Message ID: {sent_video.message_id}")
+
+                asyncio.create_task(delete_temp_file(video_info['filepath']))
+                return
+
+            else:
+                await msg.reply(f"❌ ВНУТРЕННЯЯ\nОШИБКА\nСКАЧИВАНИЯ.\n\nВОЗМОЖНО,\nВИДЕО\nСЛИШКОМ БОЛЬШОЕ.")
+                print(f"Failed to convert video for {video_url}")
+
+        except Exception as e:
+            await msg.reply(f"❌ ВНУТРЕННЯЯ\nОШИБКА\nСКАЧИВАНИЯ.\n\nВОЗМОЖНО,\nВИДЕО\nСЛИШКОМ БОЛЬШОЕ.\n\nОШИБКА,\nПРЕДОСТАВЛЕННАЯ ПРОГРАММОЙ:\n{e}")
+        return
+
+
+
+    await do_pronouns(msg)
+
+
+
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
     if trigger is not None:
@@ -69,44 +143,6 @@ async def main(msg: Message, bot: Bot):
     if trigger is not None:
         await msg.reply(trigger)
         print(f'\ntg://user?id={msg.from_user.id} (@{msg.from_user.username}) triggered {trigger}; they said\n{message_text}\n')
-
-    # pronouns command
-    if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мест "):
-        if message_text.lower().startswith("+местоимения "):
-            new_pronouns = message_text.lower()[len("+местоимения "):].strip()
-        else:
-            new_pronouns = message_text.lower()[len("+мест "):].strip()
-
-        if len(new_pronouns) <= 30:
-            db_pronouns.add_pronouns(msg.from_user.id, new_pronouns)
-            await msg.reply(f"{user_link}.\n{new_pronouns.upper()}.\n\nЗАМЕЧАТЕЛЬНО.\n\nДЕЙСТВИТЕЛЬНО\nЗАМЕЧАТЕЛЬНО.\n\nСПАСИБО\nЗА ТВОЁ ВРЕМЯ.", parse_mode="HTML")
-        else:
-            await msg.reply(
-                f"{user_link}.\nМЕСТОИМЕНИЯ\nНЕ ДОЛЖНЫ ЗАНИМАТЬ БОЛЬШЕ\nЧЕМ 30 СИМВОЛОВ.",
-                parse_mode="HTML")
-
-    if message_text.lower().startswith("-местоимения") or message_text.lower().startswith("-мест"):
-        await msg.reply(
-            f"ФАЙЛ\nУДАЛЁН.",
-            parse_mode="HTML")
-        db_pronouns.rm_pronouns(msg.from_user.id)
-
-    if message_text.lower() == "мои местоимения" or message_text.lower() == "мои мест":
-        pronouns = db_pronouns.get_pronouns(msg.from_user.id)
-        if pronouns is not None:
-            await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
-        else:
-            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
-
-    if (message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "кто ты" or message_text.lower() == "ты кто") and msg.reply_to_message:
-        pronouns = db_pronouns.get_pronouns(msg.reply_to_message.from_user.id)
-        user_reply_link = (f'\"<a href="tg://user?id={msg.reply_to_message.from_user.id}">'
-                     f'{msg.reply_to_message.from_user.full_name.replace("&", "&amp;")
-                     .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
-        if pronouns is not None:
-            await msg.reply(f"МЕСТОИМЕНИЯ {user_reply_link}:\n{pronouns.upper()}.", parse_mode='HTML')
-        else:
-            await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.", parse_mode='HTML')
 
     if message_text.lower() == "гастер оне/ено" or message_text.lower() == "гастер оне" or message_text.lower() == "гастер неомест":
         await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')), caption="ОНЕ/ЕНО - НЕОМЕСТОИМЕНИЕ АВТОРСТВА @LOSTYAWOLFER,\nПРИЗВАННОЕ БЫТЬ ПОЛНОЙ АЛЬТЕРНАТИВОЙ\nАНГЛИЙСКОГО \"THEY/THEM\"\nВ ЕДИНСТВЕННОМ ЧИСЛЕ.\n\nДЛЯ НЕИЗВЕСТНЫХ ЛЮДЕЙ,\nДЛЯ ЛЮДЕЙ НЕБИНАРНЫХ...\nВЫБОР ЗА ТОБОЙ.\n\nЭТОТ ЕГО ЭКСПЕРИМЕНТ\nМНЕ КАЖЕТСЯ\nОЧЕНЬ\nОЧЕНЬ\nИНТЕРЕСНЫМ.")
