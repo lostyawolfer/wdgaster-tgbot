@@ -38,6 +38,7 @@ matches_triggers = {
     "гастрит": "МЕНЯ\nНЕ ТАК ЗОВУТ.",
     "любитель подрочить в тени": "НА МЕС\n\nЭМ.\nНЕ НА МЕСТЕ.\nЭТО НЕ Я.\nНЕ ДОКАЖЕШЬ.",
     "что с ирисом": "ГАСТЕР\nМОМЕНТ.",
+    "ирис сдох": "ГАСТЕР\nМОМЕНТ.",
     "гастер ссылка на рп": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
     "гастер ссылка на рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
     "гастер рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
