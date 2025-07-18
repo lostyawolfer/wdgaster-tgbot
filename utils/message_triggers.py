@@ -24,7 +24,7 @@ contains_triggers = {
     "уникальных листьях": "УНИКАЛЬНЫЕ ЛИСТЬЯ\nПРЕДНАЗНАЧЕНЫ\nТОЛЬКО\nДЛЯ ДЕСЕМБЕР\nИ АЗРИЭЛЯ.",
 }
 
-matches_triggers = {
+exact_matches_triggers = {
     "test": "ТЕСТ ПРОЙДЕН.",
     "тест": "ТЕСТ ПРОЙДЕН.",
     "бот": "НА МЕСТЕ.",
@@ -43,7 +43,15 @@ matches_triggers = {
     "гастер ссылка на рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
     "гастер рб": "НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server",
     "!снимаю полномочия": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя",
-    "дуэль @utdrgasterbot": "МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ ИСКЛЮЧИТЕЛЬНО\n ЧТОБЫ ВОЗРОДИТЬ ТЕБЯ."
+    "дуэль @utdrgasterbot": "МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ ИСКЛЮЧИТЕЛЬНО\n ЧТОБЫ ВОЗРОДИТЬ ТЕБЯ.",
+
+    "гастер создатель": "@LOSTYAWOLFER",
+    "гастер кто создал": "@LOSTYAWOLFER",
+
+    "гастер сурс код": "https://github.com/lostyawolfer/wdgaster-tgbot",
+    "гастер исходный код": "https://github.com/lostyawolfer/wdgaster-tgbot",
+    "гастер сурс": "https://github.com/lostyawolfer/wdgaster-tgbot",
+    "гастер исходник": "https://github.com/lostyawolfer/wdgaster-tgbot"
 }
 
 # currently unused

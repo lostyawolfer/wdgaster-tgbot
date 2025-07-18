@@ -10,7 +10,7 @@ from db.db import Pronouns
 from utils.check_admin import check_admin
 from utils.delete_message import delete_message
 from utils.help_text import help_text, startup_announce
-from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, matches_triggers
+from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, exact_matches_triggers
 from utils.pronouns import do_pronouns
 from utils.youtube_downloader import do_youtube
 from data.loader import main_chat_id
@@ -71,7 +71,7 @@ async def main(msg: Message, bot: Bot):
     if trigger is not None:
         await msg.reply(trigger)
 
-    trigger = trigger_message(matches_triggers, message_text.lower(), check_method=3, channel_message=msg.is_automatic_forward)
+    trigger = trigger_message(exact_matches_triggers, message_text.lower(), check_method=3, channel_message=msg.is_automatic_forward)
     if trigger is not None:
         await msg.reply(trigger)
 
