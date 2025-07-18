@@ -12,6 +12,7 @@ from utils.delete_message import delete_message
 from utils.help_text import help_text, startup_announce
 from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, exact_matches_triggers
 from utils.pronouns import do_pronouns
+from utils.update import update
 from utils.youtube_downloader import do_youtube
 from data.loader import main_chat_id
 
@@ -63,6 +64,10 @@ async def main(msg: Message, bot: Bot):
 
     await do_youtube(msg, bot)
     await do_pronouns(msg, bot)
+
+    if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
+        await update(msg, bot)
+        return
 
 
 

@@ -78,7 +78,7 @@ async def do_pronouns(msg, bot: Bot):
                     f"ПОЛЬЗОВАТЕЛЬ @{username.upper()}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.\n\n[[ЭТО МОЖНО СДЕЛАТЬ КОМАНДОЙ +МЕСТ.]]",
                         parse_mode='HTML')
 
-    elif message_text == "!все мест" and msg.from_user.id == 653632008:
+    elif message_text == "г!все мест" and msg.from_user.id == 653632008:
         data = db_pronouns.get_all_data()
         result = '''ДЛЯ СПРАВКИ ОКРУЖАЮЩИМ,\nЭТА КОМАНДА РАБОТАЕТ ТОЛЬКО ДЛЯ @LOSTYAWOLFER.
 
