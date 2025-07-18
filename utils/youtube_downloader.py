@@ -6,6 +6,11 @@ import yt_dlp
 import asyncio
 import re
 
+from aiogram import Bot
+from aiogram.enums import ChatAction
+from aiogram.methods import SetMessageReaction
+from aiogram.types import Message, ReactionTypeEmoji, FSInputFile
+
 TEMP_DOWNLOAD_DIR = "temp_downloads"
 os.makedirs(TEMP_DOWNLOAD_DIR, exist_ok=True)
 
@@ -104,3 +109,69 @@ async def delete_temp_file(filepath: str):
     except Exception as e:
         print(f"Error deleting temporary file {filepath}: {e}")
         pass
+
+async def do_youtube(msg: Message, bot: Bot):
+    message_text = msg.text if msg.text else " "
+    youtube_url_match = re.search(r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/[^\s]+', message_text)
+    if youtube_url_match:
+        video_url = youtube_url_match.group(0)
+        print(f"Detected YouTube link: {video_url} from {msg.from_user.full_name}")
+
+        await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
+                                     reaction=[ReactionTypeEmoji(emoji="👾")]))
+        await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.RECORD_VIDEO)
+
+        try:
+            video_info = await download_youtube_video(video_url)
+
+            if video_info and video_info['filepath']:
+                video_file = FSInputFile(video_info['filepath'])
+
+                # Prepare caption: Include title and description
+                # Keep total caption length in mind (max 1024 characters for video captions)
+                caption_parts = []
+                caption_parts.append(f"<b><u>{video_info['title']}</u></b>")  # Make title bold
+
+                # Add description if available and not empty
+                if video_info['description']:
+                    description_to_add = video_info['description']
+                    # Important: Escape HTML characters in the description itself
+                    # before wrapping it in blockquote tags, otherwise description content
+                    # like '<script>' or '&' will break the parsing.
+                    description_to_add_escaped = description_to_add.replace("&", "&amp;").replace("<", "&lt;").replace(
+                        ">", "&gt;")
+
+                    # Basic truncation example (after escaping)
+                    if len(description_to_add_escaped) > 1024:
+                        description_to_add_escaped = description_to_add_escaped[:1021] + "..."
+
+                    # Wrap the escaped description in blockquote tags
+                    caption_parts.append(f"<blockquote expandable>{description_to_add_escaped}</blockquote>")
+
+                final_caption = "\n".join(caption_parts)
+
+                # Ensure the entire caption doesn't exceed 1024 characters
+                if len(final_caption) > 1024:
+                    final_caption = final_caption[:1011] + "...</blockquote>"  # Truncate with ellipsis
+
+                await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_VIDEO)
+                sent_video = await msg.reply_video(
+                    video_file,
+                    caption=final_caption,
+                    parse_mode='HTML',  # Use HTML parse mode for bold tags and potentially timecodes
+                    duration=video_info.get('duration'),
+                    # width=720, # Optional: You can set these based on your needs or extracted info
+                    # height=480
+                    # thumbnail=thumbnail_file
+                )
+                print(f"Successfully sent video for {video_url}. Message ID: {sent_video.message_id}")
+
+                asyncio.create_task(delete_temp_file(video_info['filepath']))
+
+            else:
+                await msg.reply(f"❌ ВНУТРЕННЯЯ\nОШИБКА\nСКАЧИВАНИЯ.\n\nВОЗМОЖНО,\nВИДЕО\nСЛИШКОМ БОЛЬШОЕ.")
+                print(f"Failed to convert video for {video_url}")
+
+        except Exception as e:
+            await msg.reply(
+                f"❌ ВНУТРЕННЯЯ\nОШИБКА\nСКАЧИВАНИЯ.\n\nВОЗМОЖНО,\nВИДЕО\nСЛИШКОМ БОЛЬШОЕ.\n\nОШИБКА,\nПРЕДОСТАВЛЕННАЯ ПРОГРАММОЙ:\n{e}")

@@ -43,6 +43,7 @@ class Pronouns:
             CREATE TABLE IF NOT EXISTS pronouns(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
+            username TEXT,
             pronouns TEXT
             )
         ''')
@@ -56,14 +57,16 @@ class Pronouns:
             return True
         return False
 
-    def add_pronouns(self, user_id, pronouns):
+    def add_pronouns(self, user_id, username, pronouns):
         con = sqlite3.connect(os.path.join('db','pronouns.db'))
         cur = con.cursor()
         user_exists = self.find_if_user_exists(user_id)
 
+        pronouns = pronouns.replace("\n", " ").replace('\r', ' ')
+
         if not user_exists:
-            cur.execute('INSERT INTO pronouns(user_id, pronouns) VALUES(?, ?)',
-                        (user_id, pronouns))
+            cur.execute('INSERT INTO pronouns(user_id, username, pronouns) VALUES(?, ?, ?)',
+                        (user_id, username, pronouns))
         else:
             cur.execute('UPDATE pronouns SET pronouns=? WHERE user_id=?', (pronouns, user_id))
 
@@ -76,8 +79,28 @@ class Pronouns:
         pronouns = cur.execute('SELECT pronouns FROM pronouns WHERE user_id=?', (user_id,)).fetchone()
         return pronouns[0] if pronouns is not None else None
 
+    def get_pronouns_by_username(self, username) -> str | None:
+        con = sqlite3.connect(os.path.join('db', 'pronouns.db'))
+        cur = con.cursor()
+
+        pronouns = cur.execute('SELECT pronouns FROM pronouns WHERE username=?', (username,)).fetchone()
+        return pronouns[0] if pronouns is not None else None
+
+    def get_user_id_by_username(self, username) -> int | None:
+        con = sqlite3.connect(os.path.join('db', 'pronouns.db'))
+        cur = con.cursor()
+
+        user_id = cur.execute('SELECT user_id FROM pronouns WHERE username=?', (username,)).fetchone()
+        return user_id[0] if user_id is not None else None
+
     def rm_pronouns(self, user_id):
         con = sqlite3.connect(os.path.join('db', 'pronouns.db'))
         cur = con.cursor()
         cur.execute('DELETE FROM pronouns WHERE user_id=?', (user_id,))
         con.commit()
+
+    def get_all_data(self):
+        con = sqlite3.connect(os.path.join('db', 'pronouns.db'))
+        cur = con.cursor()
+        data = cur.execute('SELECT user_id, username, pronouns FROM pronouns').fetchall()
+        return data
