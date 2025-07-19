@@ -102,5 +102,5 @@ class Pronouns:
     def get_all_data(self):
         con = sqlite3.connect(os.path.join('db', 'pronouns.db'))
         cur = con.cursor()
-        data = cur.execute('SELECT user_id, username, pronouns FROM pronouns').fetchall()
+        data = cur.execute('SELECT id, user_id, username, pronouns FROM pronouns').fetchall()
         return data

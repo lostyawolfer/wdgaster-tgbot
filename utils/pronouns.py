@@ -1,5 +1,5 @@
 from aiogram import Bot
-from aiogram.enums import MessageEntityType
+from aiogram.enums import MessageEntityType, ChatAction
 from db.db import Pronouns
 
 db_pronouns = Pronouns()
@@ -80,18 +80,19 @@ async def do_pronouns(msg, bot: Bot):
 
     elif message_text == "г!все мест" and msg.from_user.id == 653632008:
         data = db_pronouns.get_all_data()
+        await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.TYPING)
         result = '''ДЛЯ СПРАВКИ ОКРУЖАЮЩИМ,\nЭТА КОМАНДА РАБОТАЕТ ТОЛЬКО ДЛЯ @LOSTYAWOLFER.
 
 СПИСОК ВСЕХ МЕСТОИМЕНИЙ В БАЗЕ ДАННЫХ:
 <blockquote expandable>'''
 
         if data:
-            for user_id, username, pronouns_text in data:
+            for id, user_id, username, pronouns_text in data:
                 try:
                     member_info = await bot.get_chat_member(chat_id=msg.chat.id, user_id=user_id)
                     display_name = member_info.user.full_name
                     display_name_escaped = display_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    result += f'<a href="tg://user?id={user_id}">{display_name_escaped}</a>   ==   {pronouns_text}\n'
+                    result += f'<code>{id}</code> | <a href="tg://user?id={user_id}">{display_name_escaped}</a>   ==   {pronouns_text}\n'
                 except Exception as e:
                     # Fallback to just user ID if fetching info fails
                     print(f"Could not get member info for user_id {user_id}: {e}")
