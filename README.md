@@ -1,3 +1,9 @@
+[Читати на українській](README.uk.md)
+
+[Читать на русском](README.ru.md)
+
+---
+
 # W. D. Gaster Telegram Bot
 
 [![Telegram Bot](https://img.shields.io/badge/Telegram-@utdrgasterbot-blue.svg?style=flat-square&logo=telegram)](https://t.me/utdrgasterbot)
@@ -46,7 +52,7 @@ To run your own instance of the W. D. Gaster bot, follow these steps.
 2.  **Create a virtual environment (recommended):**
     ```sh
     python -m venv .venv
-    source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
+    source .venv/bin/activate
     ```
 
 3.  **Install the dependencies:**
@@ -103,7 +109,7 @@ The bot responds to a variety of commands and triggers. To see the full list, us
 * `г!все мест` — Shows all pronouns from the database.
 
 ### Triggers
-The bot responds to certain phrases (in Ukrainian/Russian) if they are part of a message.
+The bot responds to certain phrases if they are part of a message.
 * `ааа женщина`
 * `многа букав` / `много букв` / `лень читать`
 * `driving in my car🚗, right after a beer🍺`
