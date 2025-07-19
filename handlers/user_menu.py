@@ -111,9 +111,9 @@ async def main(msg: Message, bot: Bot):
 
 
 
-    if message_text.lower().startswith("гастер повтори") and msg.from_user.id == 653632008:
+    if message_text.lower().startswith("г!повтори") and msg.from_user.id == 653632008:
         await msg.delete()
-        content = msg.text[len("гастер повтори "):].strip()
+        content = msg.text[len("г!повтори "):].strip()
         delay_match = re.match(r'^((\d+)\s*([сcмm]))\s*(.*)', content.lower())
         delay_seconds = 0  # Default no delay
         text_to_repeat = content  # By default, repeat everything
