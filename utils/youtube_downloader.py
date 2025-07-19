@@ -95,7 +95,7 @@ async def do_youtube(msg: Message, bot: Bot) -> bool:
 
     try:
         await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
-                                 reaction=[ReactionTypeEmoji(emoji="👍")]))
+                                 reaction=[ReactionTypeEmoji(emoji="👾")]))
         await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.RECORD_VIDEO)
     except Exception as e:
         print(f"Could not set reaction: {e}")

@@ -115,7 +115,7 @@ async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool =
 
     try:
         await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
-                                 reaction=[ReactionTypeEmoji(emoji="👍")]))
+                                 reaction=[ReactionTypeEmoji(emoji="👾")]))
         await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
     except Exception as e:
         print(f"Could not set reaction: {e}")
