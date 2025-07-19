@@ -13,13 +13,12 @@ from utils.help_text import help_text, startup_announce
 from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, exact_matches_triggers
 from utils.pronouns import do_pronouns
 from utils.update import update
-from utils.youtube_downloader import do_youtube
+from utils.youtube_downloader import do_youtube, get_youtube_video_id
+from utils.cobalt_downloader import do_cobalt_download, get_cobalt_link
 from data.loader import main_chat_id
 
 router = Router()
 db_pronouns = Pronouns()
-
-
 
 @router.startup()
 async def on_startup_notify(bot: Bot):
@@ -28,7 +27,6 @@ async def on_startup_notify(bot: Bot):
         text=startup_announce,
         parse_mode='HTML'
     )
-
 
 def trigger_message(triggers: dict, main_str: str, check_method: int = 0, is_admin = False, channel_message = False):
     for s in triggers.keys():
@@ -46,30 +44,44 @@ def is_this_a_comment_section(chat: ChatFullInfo) -> bool:
     print(chat.linked_chat_id)
     return chat.linked_chat_id is not None
 
-
-
-@router.message(F.chat.type.in_({ChatType.SUPERGROUP}))
+@router.message(F.chat.type.in_({ChatType.SUPERGROUP, ChatType.GROUP, ChatType.PRIVATE}))
 async def main(msg: Message, bot: Bot):
-    chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
-    # user_link = (f'\"<a href="tg://user?id={msg.from_user.id}">'
-    #              f'{msg.from_user.full_name.replace("&", "&amp;")
-    #              .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
     message_text = msg.text if msg.text else " "
 
-    is_admin = check_admin(chat_member, msg)
-    is_decorative_admin = check_admin(chat_member, msg, decorative=True)
+    # --- Group-Specific Logic ---
+    is_admin = False
+    if msg.chat.type != ChatType.PRIVATE:
+        chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
+        is_admin = check_admin(chat_member, msg)
+        is_decorative_admin = check_admin(chat_member, msg, decorative=True)
 
-    if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
-        await delete_message(msg, bot, is_admin, is_decorative_admin)
+        if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
+            await delete_message(msg, bot, is_admin, is_decorative_admin)
 
-    await do_youtube(msg, bot)
+        if msg.new_chat_members:
+            await msg.reply("ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ СВОЙ ВКЛАД\nВ ЭТО.\n\n-----------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ ЭТОЙ ГРУППЫ.\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
+    # --- End Group-Specific Logic ---
+
+
+    # --- Downloader Logic ---
+    is_youtube = get_youtube_video_id(message_text) is not None
+    is_cobalt_supported = get_cobalt_link(message_text) is not None
+
+    if is_youtube:
+        yt_dlp_success = await do_youtube(msg, bot)
+        if not yt_dlp_success:
+            # If yt-dlp fails, fallback to cobalt
+            await do_cobalt_download(msg, bot, is_youtube_fallback=True)
+    elif is_cobalt_supported:
+        # If it's not a YouTube link, but is another supported link, use cobalt
+        await do_cobalt_download(msg, bot)
+    # --- End Downloader Logic ---
+
     await do_pronouns(msg, bot)
 
     if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
         await update(msg, bot)
         return
-
-
 
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
@@ -80,9 +92,10 @@ async def main(msg: Message, bot: Bot):
     if trigger is not None:
         await msg.reply(trigger)
 
-    trigger = trigger_message(admin_action_triggers, message_text.lower(), check_method=1, is_admin=is_admin)
-    if trigger is not None:
-        await msg.reply(trigger)
+    if msg.chat.type != ChatType.PRIVATE:
+        trigger = trigger_message(admin_action_triggers, message_text.lower(), check_method=1, is_admin=is_admin)
+        if trigger is not None:
+            await msg.reply(trigger)
 
     trigger = trigger_message(channel_post_triggers, message_text.lower(), check_method=2, channel_message=msg.is_automatic_forward)
     if trigger is not None:
@@ -103,33 +116,24 @@ async def main(msg: Message, bot: Bot):
     if msg.reply_to_message and msg.reply_to_message.from_user.id == bot.id and (message_text.lower() == "дуэль"):
         await msg.reply("МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ\nИСКЛЮЧИТЕЛЬНО\nЧТОБЫ ВОЗРОДИТЬ ТЕБЯ.")
 
-    if msg.new_chat_members:
-        await msg.reply("ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ СВОЙ ВКЛАД\nВ ЭТО.\n\n-----------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ ЭТОЙ ГРУППЫ.\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
-
     if message_text.lower() == "гастер команды":
         await msg.reply(help_text, parse_mode='HTML', disable_web_page_preview=True)
-
-
 
     if message_text.lower().startswith("г!повтори") and msg.from_user.id == 653632008:
         await msg.delete()
         content = msg.text[len("г!повтори "):].strip()
         delay_match = re.match(r'^((\d+)\s*([сcмm]))\s*(.*)', content.lower())
-        delay_seconds = 0  # Default no delay
-        text_to_repeat = content  # By default, repeat everything
+        delay_seconds = 0
+        text_to_repeat = content
 
         if delay_match:
-            full_delay_str = delay_match.group(1)  # e.g., "5с"
-            duration_value = int(delay_match.group(2))  # e.g., 5
-            unit = delay_match.group(3)  # e.g., "с"
-            remaining_text = delay_match.group(4).strip()  # The text after the delay part
-
-            if unit == 'с' or unit == 'c':  # seconds
+            duration_value = int(delay_match.group(2))
+            unit = delay_match.group(3)
+            text_to_repeat = delay_match.group(4).strip()
+            if unit in ('с', 'c'):
                 delay_seconds = duration_value
-            elif unit == 'м' or unit == 'm':  # minutes
+            elif unit in ('м', 'm'):
                 delay_seconds = duration_value * 60
-
-            text_to_repeat = remaining_text
 
         if delay_seconds:
             await asyncio.sleep(delay_seconds)
