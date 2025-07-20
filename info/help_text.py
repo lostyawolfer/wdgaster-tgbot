@@ -10,7 +10,8 @@ W. D. GASTER - V {ver}
 {last_update}
 
 <b>СПИСОК ИЗМЕНЕНИЙ V 1.2.5</b>
-<blockquote expandable>- РУУЛСИФИКАЦИЯ СИЕ БОТА БЛАГОДАРЯ @IKKYMX</blockquote>
+<blockquote expandable>- РУУЛСИФИКАЦИЯ СИЕ БОТА БЛАГОДАРЯ @IKKYMX
+- ДОЛЖЕН БЫТЬ ПОФИКШЕН ПИНГ ЛЮДЕЙ ИЗ-ЗА КОМАНДЫ Г!ВСЕ МЕСТ</blockquote>
 
 <b>СПИСОК ИЗМЕНЕНИЙ V 1.2.4</b>
 <blockquote expandable>- ДОБАВЛЕНО АВТООБНОВЛЕНИЕ КОДА БОТА ПО КОМАНДЕ
