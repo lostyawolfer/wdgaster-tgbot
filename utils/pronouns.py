@@ -9,23 +9,22 @@ async def do_pronouns(msg, bot: Bot):
                  f'{msg.from_user.full_name.replace("&", "&amp;")
                  .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
     message_text = msg.text if msg.text else " "
-    if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мест ") or message_text.lower().startswith("+мѣстоименiя ") or message_text.lower().startswith("+мѣстъ ") or message_text.lower().startswith("+мѣстоименья "):
-        if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мѣстоименiя ") or message_text.lower().startswith("+мѣстоименья "):
-            new_pronouns = message_text.lower()[len("+местоимения "):].strip()
-        elif:
-            new_pronouns = message_text.lower()[len("+мест "):].strip()
-        elif:
-            new_pronouns = message_text.lower()[len("+мѣстоименiя "):].strip()
-        elif:
-            new_pronouns = message_text.lower()[len("+мѣстоименья "):].strip()
-        else:
-            new_pronouns = message_text.lower()[len("+мѣстъ "):].strip()
+
+    if (message_text.lower().startswith("+местоимения ") or
+            message_text.lower().startswith("+мѣстоименiя ") or
+            message_text.lower().startswith("+мѣстоименья ") or
+            message_text.lower().startswith("+мѣстъ ") or
+            message_text.lower().startswith("+мест ")):
+
+        new_pronouns = message_text.split(" ", 1)[1].strip()
+
 
         if len(new_pronouns) <= 30:
             db_pronouns.add_pronouns(msg.from_user.id, msg.from_user.username, new_pronouns)
             await msg.reply(
                 f"{user_link}.\n{new_pronouns.upper()}.\n\nЗАМЕЧАТЕЛЬНО.\n\nДЕЙСТВИТЕЛЬНО\nЗАМЕЧАТЕЛЬНО.\n\nСПАСИБО\nЗА ТВОЁ ВРЕМЯ.",
                 parse_mode="HTML")
+
         else:
             await msg.reply(
                 f"{user_link}.\nМЕСТОИМЕНИЯ\nНЕ ДОЛЖНЫ ЗАНИМАТЬ БОЛЬШЕ\nЧЕМ 30 СИМВОЛОВ.",
@@ -78,10 +77,11 @@ async def do_pronouns(msg, bot: Bot):
             await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.\n\n[[ЭТО МОЖНО СДЕЛАТЬ КОМАНДОЙ +МЕСТ.]]", parse_mode='HTML')
 
     elif (message_text.lower().startswith("местоимения @") or
-        message_text.lower().startswith("мест @")) or
-        message_text.lower().startswith("мѣстоименiя @")) or
-        message_text.lower().startswith("мѣстоименья @")) or
+        message_text.lower().startswith("мест @") or
+        message_text.lower().startswith("мѣстоименiя @") or
+        message_text.lower().startswith("мѣстоименья @") or
         message_text.lower().startswith("мѣстъ @")):
+
             username = message_text.split("@", 1)[1].strip()
             try:
                 user = await bot.get_chat_member(msg.chat.id, db_pronouns.get_user_id_by_username(username))
@@ -116,7 +116,7 @@ async def do_pronouns(msg, bot: Bot):
                     member_info = await bot.get_chat_member(chat_id=msg.chat.id, user_id=user_id)
                     display_name = member_info.user.full_name
                     display_name_escaped = display_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    result += f'<code>{id}</code> | <a href="tg://user?id={user_id}">{display_name_escaped}</a>   ==   {pronouns_text}\n'
+                    result += f'<code>{id}</code> | <a href="t.me/{username}">{display_name_escaped}</a>   ==   {pronouns_text}\n'
                 except Exception as e:
                     # Fallback to just user ID if fetching info fails
                     print(f"Could not get member info for user_id {user_id}: {e}")

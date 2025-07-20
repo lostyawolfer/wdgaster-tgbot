@@ -1,6 +1,6 @@
 from aiogram.methods import SetMessageReaction
 from aiogram.types import ReactionTypeEmoji
-from utils import permissions
+from info import permissions
 import asyncio
 import datetime
 

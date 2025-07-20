@@ -1,16 +1,14 @@
 import os
 import asyncio
 import re
-
 from aiogram import Router, F, Bot
-from aiogram.enums import ChatType, ChatAction
-from aiogram.methods import SetMessageReaction
-from aiogram.types import Message, Chat, ChatFullInfo, FSInputFile, ReactionTypeEmoji
+from aiogram.enums import ChatType
+from aiogram.types import Message, ChatFullInfo, FSInputFile
 from db.db import Pronouns
 from utils.check_admin import check_admin
 from utils.delete_message import delete_message
-from utils.help_text import help_text, startup_announce
-from utils.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, exact_matches_triggers
+from info.help_text import help_text, startup_announce
+from info.message_triggers import contains_triggers, admin_action_triggers, channel_post_triggers, exact_matches_triggers
 from utils.pronouns import do_pronouns
 from utils.update import update
 from utils.youtube_downloader import do_youtube
@@ -68,8 +66,6 @@ async def main(msg: Message, bot: Bot):
     if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
         await update(msg, bot)
         return
-
-
 
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)

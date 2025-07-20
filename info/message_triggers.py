@@ -98,7 +98,7 @@ exact_matches_triggers = {
     "гастеръ исходный кодъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
     "гастер сурс": "https://github.com/lostyawolfer/wdgaster-tgbot",
     "гастеръ сурсъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастер исходник": "https://github.com/lostyawolfer/wdgaster-tgbot"
+    "гастер исходник": "https://github.com/lostyawolfer/wdgaster-tgbot",
     "гастеръ исходникъ": "https://github.com/lostyawolfer/wdgaster-tgbot"
 }
 
@@ -108,7 +108,6 @@ reply_to_bot_triggers = {
     "кто ты": "Я ВИНГ ГАСТЕР! КОРОЛЕВСКИЙ УЧЁНЫЙ"
 }
 
-
 admin_action_triggers = {
     "варн": "КАК ЖАЛЬ ЧТО\nУЧАСТНИКИ ЭКСПЕРИМЕНТА\nРУШАТ ЕГО ПОРЯДОК.",
     "снять варн": "ОЧЕНЬ ИНТЕРЕСНОЕ ПОВЕДЕНИЕ.",
@@ -117,6 +116,6 @@ admin_action_triggers = {
 }
 
 channel_post_triggers = {
-    "загор": "КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\n\"ЗАГОР\".\n\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ."
+    "загор": "КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\n\"ЗАГОР\".\n\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ.",
     "загоръ": "КАКАЯ ИНТЕРЕСНАЯ\nТЕОРИЯ.\n\"ЗАГОР\".\n\nМНЕ С НИМ\nЕЩЁ ПРЕДСТОИТ\nПОВИДАТЬСЯ."
 }
