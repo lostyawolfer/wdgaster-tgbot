@@ -9,11 +9,17 @@ async def do_pronouns(msg, bot: Bot):
                  f'{msg.from_user.full_name.replace("&", "&amp;")
                  .replace("<", "&lt;").replace(">", "&gt;").upper()}</a>\"')
     message_text = msg.text if msg.text else " "
-    if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мест "):
-        if message_text.lower().startswith("+местоимения "):
+    if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мест ") or message_text.lower().startswith("+мѣстоименiя ") or message_text.lower().startswith("+мѣстъ ") or message_text.lower().startswith("+мѣстоименья "):
+        if message_text.lower().startswith("+местоимения ") or message_text.lower().startswith("+мѣстоименiя ") or message_text.lower().startswith("+мѣстоименья "):
             new_pronouns = message_text.lower()[len("+местоимения "):].strip()
-        else:
+        elif:
             new_pronouns = message_text.lower()[len("+мест "):].strip()
+        elif:
+            new_pronouns = message_text.lower()[len("+мѣстоименiя "):].strip()
+        elif:
+            new_pronouns = message_text.lower()[len("+мѣстоименья "):].strip()
+        else:
+            new_pronouns = message_text.lower()[len("+мѣстъ "):].strip()
 
         if len(new_pronouns) <= 30:
             db_pronouns.add_pronouns(msg.from_user.id, msg.from_user.username, new_pronouns)
@@ -25,14 +31,14 @@ async def do_pronouns(msg, bot: Bot):
                 f"{user_link}.\nМЕСТОИМЕНИЯ\nНЕ ДОЛЖНЫ ЗАНИМАТЬ БОЛЬШЕ\nЧЕМ 30 СИМВОЛОВ.",
                 parse_mode="HTML")
 
-    elif message_text.lower().startswith("-местоимения") or message_text.lower().startswith("-мест"):
+    elif message_text.lower().startswith("-местоимения") or message_text.lower().startswith("-мест") or message_text.lower().startswith("-мѣстоименiя") or message_text.lower().startswith("-мѣстоименья") or message_text.lower().startswith("-мѣстъ"):
         await msg.reply(
             f"ФАЙЛ\nУДАЛЁН.",
             parse_mode="HTML")
         db_pronouns.rm_pronouns(msg.from_user.id)
 
-    elif ((message_text.lower() == "мои местоимения" or message_text.lower() == "мои мест") or
-          ((message_text.lower() == "местоимения" or message_text.lower() == "мест") and not msg.reply_to_message)):
+    elif ((message_text.lower() == "мои местоимения" or message_text.lower() == "мои мест" or message_text.lower() == "мои мѣстоименiя" or message_text.lower() == "мои мѣстоименья" or message_text.lower() == "мои мѣстъ") or
+          ((message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "мѣстоименiя" or message_text.lower() == "мѣстоименья" or message_text.lower() == "мѣстъ") and not msg.reply_to_message)):
         pronouns = db_pronouns.get_pronouns(msg.from_user.id)
         if pronouns is not None:
             await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
@@ -44,7 +50,21 @@ async def do_pronouns(msg, bot: Bot):
          message_text.lower() == "твои местоимения" or
          message_text.lower() == "твои мест" or
          message_text.lower() == "кто ты" or
-         message_text.lower() == "ты кто")
+         message_text.lower() == "ты кто" or
+
+         message_text.lower() == "мѣстоименiя" or
+         message_text.lower() == "мѣстоименья" or
+         message_text.lower() == "мѣстъ" or
+         message_text.lower() == "твои мѣстоименiя" or
+         message_text.lower() == "твои мѣстоименья" or
+         message_text.lower() == "твои мѣстъ" or
+         message_text.lower() == "ваши мѣстоименiя" or
+         message_text.lower() == "ваши мѣстоименья" or
+         message_text.lower() == "ваши мѣстъ" or
+         message_text.lower() == "кто вы" or
+         message_text.lower() == "кто ты ѣсть" or
+         message_text.lower() == "кто вы ѣсть" or
+         message_text.lower() == "вы кто")
             and msg.reply_to_message
             and not msg.reply_to_message.from_user.id == bot.id):
 
@@ -58,7 +78,10 @@ async def do_pronouns(msg, bot: Bot):
             await msg.reply(f"ПОЛЬЗОВАТЕЛЬ {user_reply_link}\nНЕ ВЫСТАВИЛ СВОИХ\nМЕСТОИМЕНИЙ.\n\n[[ЭТО МОЖНО СДЕЛАТЬ КОМАНДОЙ +МЕСТ.]]", parse_mode='HTML')
 
     elif (message_text.lower().startswith("местоимения @") or
-        message_text.lower().startswith("мест @")):
+        message_text.lower().startswith("мест @")) or
+        message_text.lower().startswith("мѣстоименiя @")) or
+        message_text.lower().startswith("мѣстоименья @")) or
+        message_text.lower().startswith("мѣстъ @")):
             username = message_text.split("@", 1)[1].strip()
             try:
                 user = await bot.get_chat_member(msg.chat.id, db_pronouns.get_user_id_by_username(username))
