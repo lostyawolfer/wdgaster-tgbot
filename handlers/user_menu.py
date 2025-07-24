@@ -69,7 +69,7 @@ async def main(msg: Message, bot: Bot):
         await msg.reply('БОТ ДЕАКТИВИРОВАН.\nВКЛЮЧИТЬ: Г!ВКЛЮЧИСЬ'.upper())
 
     if (message_text.lower() == "г!врубись" or message_text.lower() == "г!включись" or message_text.lower() == "г!воскресни") and is_admin:
-        deactivated = True
+        deactivated = False
         await msg.reply('БОТ СНОВА АКТИВЕН.'.upper())
 
     if deactivated:
