@@ -15,6 +15,8 @@ from utils.youtube_downloader import do_youtube, get_youtube_video_id
 from utils.cobalt_downloader import do_cobalt_download, get_cobalt_link
 from data.loader import main_chat_id
 
+deactivated = False
+
 router = Router()
 db_pronouns = Pronouns()
 
@@ -55,10 +57,27 @@ async def main(msg: Message, bot: Bot):
 
         if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
             await delete_message(msg, bot, is_admin, is_decorative_admin)
-
-        if msg.new_chat_members:
-            await msg.reply("ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ СВОЙ ВКЛАД\nВ ЭТО.\n\n-----------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ ЭТОЙ ГРУППЫ.\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
     # --- End Group-Specific Logic ---
+
+    if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
+        await update(msg, bot)
+        return
+
+    global deactivated
+    if (message_text.lower() == "г!вырубись" or message_text.lower() == "г!выключись" or message_text.lower() == "г!убейся") and is_admin:
+        deactivated = True
+        await msg.reply('БОТ ДЕАКТИВИРОВАН.\nВКЛЮЧИТЬ: Г!ВКЛЮЧИСЬ'.upper())
+
+    if (message_text.lower() == "г!врубись" or message_text.lower() == "г!включись" or message_text.lower() == "г!воскресни") and is_admin:
+        deactivated = True
+        await msg.reply('БОТ СНОВА АКТИВЕН.'.upper())
+
+    if deactivated:
+        return
+
+    if msg.new_chat_members:
+        await msg.reply(
+            "ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ СВОЙ ВКЛАД\nВ ЭТО.\n\n-----------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ ЭТОЙ ГРУППЫ.\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
 
 
     # --- Downloader Logic ---
@@ -76,10 +95,6 @@ async def main(msg: Message, bot: Bot):
     # --- End Downloader Logic ---
 
     await do_pronouns(msg, bot)
-
-    if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
-        await update(msg, bot)
-        return
 
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
