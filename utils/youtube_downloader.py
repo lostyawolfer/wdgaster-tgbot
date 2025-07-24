@@ -124,7 +124,7 @@ async def do_youtube(msg: Message, bot: Bot) -> bool:
                 duration=video_info.get('duration')
             )
         except Exception as e:
-            await msg.reply(f"❌ НЕ ВДАЛОСЯ ВІДПРАВИТИ ФАЙЛ.\n\nОШИБКА:\n{e}")
+            await msg.reply(f"❌ НЕ УДАЛОСЬ ОПРАВИТЬ ФАЙЛ.\n\nОШИБКА:\n{e}")
 
         asyncio.create_task(delete_temp_file(video_info['filepath']))
         return True
