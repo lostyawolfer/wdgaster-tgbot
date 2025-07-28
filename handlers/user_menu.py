@@ -132,7 +132,7 @@ async def main(msg: Message, bot: Bot):
     if message_text.lower() == "гастер команды":
         await msg.reply(help_text, parse_mode='HTML', disable_web_page_preview=True)
 
-    if message_text.lower().startswith("г!повтори") and msg.from_user.id == 653632008:
+    if message_text.lower().startswith("г!повтори ") and msg.from_user.id == 653632008:
         await msg.delete()
         content = msg.text[len("г!повтори "):].strip()
         delay_match = re.match(r'^((\d+)\s*([сcмm]))\s*(.*)', content.lower())
