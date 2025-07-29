@@ -6,12 +6,12 @@ from aiogram import Bot
 from aiogram.enums import ChatAction
 from aiogram.methods import SetMessageReaction
 from aiogram.types import Message, ReactionTypeEmoji, FSInputFile
+from aiogram.utils.media_group import MediaGroupBuilder
 import os
 
 TEMP_DOWNLOAD_DIR = "temp_downloads"
 os.makedirs(TEMP_DOWNLOAD_DIR, exist_ok=True)
 
-# you can add own cobalt host here
 COBALT_API_HOSTS = [
     "co.itsv1eds.ru",
     "co.eepy.today",
@@ -19,7 +19,7 @@ COBALT_API_HOSTS = [
 ]
 
 def get_cobalt_link(text: str) -> str | None:
-    """Finds a link supported by Cobalt in a given text."""
+    """Знаходить посилання, що підтримується Cobalt, у заданому тексті."""
     pattern = (
         r'https?://(?:www\.)?(?:'
         r'bilibili\.com|bsky\.app|dailymotion\.com|facebook\.com|fb\.watch|'
@@ -34,16 +34,13 @@ def get_cobalt_link(text: str) -> str | None:
     return match.group(0) if match else None
 
 async def download_with_cobalt(url: str) -> dict | None:
-    """
-    Downloads a file using a random Cobalt API instance,
-    with retries on different hosts if one fails.
-    """
+    """Завантажує файл за допомогою випадкового екземпляра Cobalt API."""
     available_hosts = COBALT_API_HOSTS.copy()
     random.shuffle(available_hosts)
 
     payload = {"url": url, "videoQuality": "720"}
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
-    timeout = aiohttp.ClientTimeout(total=5)
+    timeout = aiohttp.ClientTimeout(total=15)
 
     while available_hosts:
         host = available_hosts.pop()
@@ -55,22 +52,37 @@ async def download_with_cobalt(url: str) -> dict | None:
                 async with session.post(api_url, json=payload, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        # Handle both 'stream' and 'tunnel' statuses as success
-                        if data.get("status") in ["stream", "tunnel"]:
+                        
+                        if data.get("status") == "picker":
+                            print(f"Host {host} returned a picker. Downloading items.")
+                            filepaths = []
+                            for item in data.get("picker", []):
+                                item_url = item.get("url")
+                                if item_url:
+                                    filename = f"{random.randint(1000, 9999)}_{os.path.basename(item_url).split('?')[0]}"
+                                    filepath = os.path.join(TEMP_DOWNLOAD_DIR, filename)
+                                    
+                                    print(f"Downloading picker item: {item_url}")
+                                    async with session.get(item_url, timeout=aiohttp.ClientTimeout(total=60)) as file_response:
+                                        if file_response.status == 200:
+                                            with open(filepath, "wb") as f:
+                                                f.write(await file_response.read())
+                                            filepaths.append(filepath)
+                            if filepaths:
+                                return {"filepaths": filepaths}
+                            continue
+
+                        elif data.get("status") in ["stream", "tunnel"]:
                             download_url = data.get("url")
                             filename = data.get("filename", download_url.split("/")[-1].split("?")[0])
                             filepath = os.path.join(TEMP_DOWNLOAD_DIR, filename)
-
                             print(f"Success with host {host}. Downloading from: {download_url}")
-
                             async with session.get(download_url, timeout=aiohttp.ClientTimeout(total=60)) as file_response:
                                 if file_response.status == 200:
                                     with open(filepath, "wb") as f:
                                         f.write(await file_response.read())
                                     return {"filepath": filepath, "filename": filename}
-                                else:
-                                    print(f"Failed to download file from {download_url}. Status: {file_response.status}")
-                                    continue
+                            continue
                         else:
                             print(f"Host {host} returned unexpected status: {data}")
                             continue
@@ -84,20 +96,18 @@ async def download_with_cobalt(url: str) -> dict | None:
     print("All Cobalt API hosts failed.")
     return None
 
-
 async def delete_temp_file(filepath: str):
-    """Deletes a temporary file after a delay."""
-    await asyncio.sleep(20)
+    """Видаляє тимчасовий файл із затримкою."""
+    await asyncio.sleep(30)
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
             print(f"Deleted temporary file: {filepath}")
     except Exception as e:
         print(f"Error deleting temporary file {filepath}: {e}")
-        pass
 
 async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool = False):
-    """Handles the download process with Cobalt."""
+    """Обробляє процес завантаження через Cobalt."""
     message_text = msg.text if msg.text else " "
     url = None
 
@@ -121,11 +131,21 @@ async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool =
         print(f"Could not set reaction: {e}")
 
     download_info = await download_with_cobalt(url)
-    if download_info and download_info['filepath']:
+
+    if download_info and download_info.get('filepaths'):
+        media_group = MediaGroupBuilder()
+        for filepath in download_info['filepaths']:
+            media_group.add_photo(media=FSInputFile(filepath))
+        try:
+            await msg.reply_media_group(media=media_group.build())
+            for filepath in download_info['filepaths']:
+                asyncio.create_task(delete_temp_file(filepath))
+        except Exception as e:
+            await msg.reply(f"❌ ВНУТРЕННЯЯ\nОШИБКА\nОТПРАВКИ МЕДИАГРУППЫ (COBALT).\n\nОШИБКА:\n{e}")
+
+    elif download_info and download_info.get('filepath'):
         video_file = FSInputFile(download_info['filepath'], filename=download_info['filename'])
         try:
-            await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_VIDEO)
-            # Sending as a document, as there is no description to show in a video caption
             await msg.reply_document(video_file)
             asyncio.create_task(delete_temp_file(download_info['filepath']))
         except Exception as e:
