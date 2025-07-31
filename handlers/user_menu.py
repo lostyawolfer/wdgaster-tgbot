@@ -155,3 +155,5 @@ async def main(msg: Message, bot: Bot):
             await msg.reply_to_message.reply(text_to_repeat.upper())
         else:
             await msg.answer(text_to_repeat.upper())
+
+    #if is_admin and (message_text.lower().startswith("г!локдаун") or message_text.lower().startswith("г!локдаун"))
