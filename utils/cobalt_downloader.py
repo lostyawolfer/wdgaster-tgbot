@@ -16,7 +16,9 @@ os.makedirs(TEMP_DOWNLOAD_DIR, exist_ok=True)
 
 COBALT_API_HOSTS = [
     "co.eepy.today",
-    "co.otomir23.me"
+    "co.otomir23.me",
+    "cobalt.255x.ru",
+    "cobalt-api.meowing.de"
 ]
 
 def get_cobalt_link(text: str) -> str | None:
