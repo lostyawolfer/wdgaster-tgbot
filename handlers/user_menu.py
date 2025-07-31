@@ -132,7 +132,68 @@ async def main(msg: Message, bot: Bot):
             await do_cobalt_download(msg, bot)
 
     await do_pronouns(msg, bot)
-    # ... (решта коду)
+
+    # funny reply triggers
+    trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+
+    trigger = trigger_message(exact_matches_triggers, message_text.lower(), check_method=3, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+
+    if msg.chat.type != ChatType.PRIVATE:
+        trigger = trigger_message(admin_action_triggers, message_text.lower(), check_method=1, is_admin=is_admin)
+        if trigger is not None:
+            await msg.reply(trigger)
+
+    trigger = trigger_message(channel_post_triggers, message_text.lower(), check_method=2, channel_message=msg.is_automatic_forward)
+    if trigger is not None:
+        await msg.reply(trigger)
+
+    if message_text.lower() == "гастер оне/ено" or message_text.lower() == "гастер оне" or message_text.lower() == "гастер неомест":
+        await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')), caption="ОНЕ/ЕНО - НЕОМЕСТОИМЕНИЕ АВТОРСТВА @LOSTYAWOLFER,\nПРИЗВАННОЕ БЫТЬ ПОЛНОЙ АЛЬТЕРНАТИВОЙ\nАНГЛИЙСКОГО \"THEY/THEM\"\nВ ЕДИНСТВЕННОМ ЧИСЛЕ.\n\nДЛЯ НЕИЗВЕСТНЫХ ЛЮДЕЙ,\nДЛЯ ЛЮДЕЙ НЕБИНАРНЫХ...\nВЫБОР ЗА ТОБОЙ.\n\nЭТОТ ЕГО ЭКСПЕРИМЕНТ\nМНЕ КАЖЕТСЯ\nОЧЕНЬ\nОЧЕНЬ\nИНТЕРЕСНЫМ.")
+
+    if message_text.lower() == "лостя фембой":
+        await msg.reply_photo(FSInputFile(os.path.join('images', 'lostya_femboy.jpg')))
+
+    if message_text.lower() == "гастер спойлеры":
+        await msg.reply(f"НА ДАННЫЙ МОМЕНТ,\nСПОЙЛЕРНЫЙ РЕЖИМ ОТКЛЮЧЕН.\n\nПОСЛЕДНИЙ РАЗ СПОЙЛЕРНЫЙ РЕЖИМ\nБЫЛ АКТИВЕН\n<b>13 ИЮЛЯ.</b>", parse_mode='HTML')
+
+    if msg.reply_to_message and msg.reply_to_message.from_user.id == bot.id and (message_text.lower() == "кто ты" or message_text.lower() == "ты кто"):
+        await msg.reply("Я ВИНГ ГАСТЕР! КОРОЛЕВСКИЙ УЧЁНЫЙ")
+
+    if msg.reply_to_message and msg.reply_to_message.from_user.id == bot.id and (message_text.lower() == "дуэль"):
+        await msg.reply("МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ\nИСКЛЮЧИТЕЛЬНО\nЧТОБЫ ВОЗРОДИТЬ ТЕБЯ.")
+
+    if message_text.lower() == "гастер команды":
+        await msg.reply(help_text, parse_mode='HTML', disable_web_page_preview=True)
+
+    if message_text.lower().startswith("г!повтори ") and msg.from_user.id == 653632008:
+        await msg.delete()
+        content = msg.text[len("г!повтори "):].strip()
+        delay_match = re.match(r'^((\d+)\s*([сcмm]))\s*(.*)', content.lower())
+        delay_seconds = 0
+        text_to_repeat = content
+
+        if delay_match:
+            duration_value = int(delay_match.group(2))
+            unit = delay_match.group(3)
+            text_to_repeat = delay_match.group(4).strip()
+            if unit in ('с', 'c'):
+                delay_seconds = duration_value
+            elif unit in ('м', 'm'):
+                delay_seconds = duration_value * 60
+
+        if delay_seconds:
+            await asyncio.sleep(delay_seconds)
+
+        if msg.reply_to_message:
+            await msg.reply_to_message.reply(text_to_repeat.upper())
+        else:
+            await msg.answer(text_to_repeat.upper())
+
+    #if is_admin and (message_text.lower().startswith("г!локдаун") or message_text.lower().startswith("г!локдаун"))
 
 @router.callback_query(F.data.startswith("extract_audio:"))
 async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
