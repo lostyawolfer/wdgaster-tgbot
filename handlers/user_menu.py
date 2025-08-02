@@ -19,7 +19,7 @@ from utils.cobalt_downloader import (
     get_cobalt_audio_metadata, delete_temp_file
 )
 from data.loader import main_chat_id
-from data.cache import AUDIO_URL_CACHE
+from data.cache import AUDIO_URL_CACHE, SHAZAM_AUDIO_CACHE
 import aiohttp
 
 deactivated = False
@@ -195,61 +195,89 @@ async def main(msg: Message, bot: Bot):
 
     #if is_admin and (message_text.lower().startswith("г!локдаун") or message_text.lower().startswith("г!локдаун"))
 
+async def recognize_song_from_file(session: aiohttp.ClientSession, filepath: str) -> str:
+    """Распознает трек и возвращает отформатированную строку или пустую строку."""
+    if not os.path.exists(filepath):
+        return ""
+    try:
+        with open(filepath, "rb") as audio_file:
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', audio_file, filename=os.path.basename(filepath), content_type='audio/mpeg')
+            shazam_api_url = "https://shz.aartzz.pp.ua/recognize_song/"
+            async with session.post(shazam_api_url, data=form_data, timeout=30) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result and result.get("track"):
+                        track = result["track"]
+                        title = track.get("title", "Неизвестно")
+                        artist = track.get("subtitle", "Неизвестно")
+                        shazam_url = track.get("share", {}).get("href", "")
+                        if shazam_url:
+                            return f'🎶 <a href="{shazam_url}">{artist} - {title}</a>'
+                else:
+                    logging.error(f"Shazam API error: {response.status} - {await response.text()}")
+                    return ""
+    except Exception:
+        logging.exception("An error occurred during song recognition.")
+    return ""
+
 @router.callback_query(F.data.startswith("extract_audio:"))
 async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
     message_id = int(callback_query.data.split(":", 1)[1])
     original_message = callback_query.message
     logging.info(f"Callback received for message_id: {message_id}")
 
+    await bot.edit_message_reply_markup(
+        chat_id=original_message.chat.id, 
+        message_id=original_message.message_id, 
+        reply_markup=None
+    )
+
     cache_entry = AUDIO_URL_CACHE.get(message_id)
     if not cache_entry:
-        await callback_query.answer("ОШИБКА: Данные не найдены.", show_alert=True)
+        await callback_query.answer("ОШИБКА.\nДАННЫЕ ИССЕЗЛИ.", show_alert=True)
         return
 
     video_filepath = cache_entry["filepath"]
-    original_url = cache_entry["original_url"]
-    host = cache_entry["host"]
-
     if not os.path.exists(video_filepath):
-        await callback_query.answer("ОШИБКА: Исходный видеофайл уже удалён.", show_alert=True)
+        await callback_query.answer("ОШИБКА.\nИСХОДНЫЙ ФАЙЛ УЖЕ УДАЛЁН.", show_alert=True)
         return
 
-    await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...", show_alert=False)
-    
-    async with aiohttp.ClientSession() as session:
-        metadata = await get_cobalt_audio_metadata(session, original_url, host)
-    
-    if not metadata or not metadata.get("title"):
-        logging.warning("Failed to get metadata from Cobalt API, falling back to oEmbed.")
-        oembed_data = await get_tiktok_oembed_info(original_url)
-        if oembed_data:
-            metadata = {"title": oembed_data.get("title"), "artist": oembed_data.get("artist")}
-        else:
-            metadata = {"title": "Audio", "artist": "Unknown"}
+    await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...\nЭТОТ ПРОЦЕСС\nМОЖЕТ ЗАНЯТЬ\nНЕКОТОРОЕ ВРЕМЯ.", show_alert=False)
     
     audio_path = f"{os.path.splitext(video_filepath)[0]}.mp3"
     
-    success = await extract_audio_with_ffmpeg(video_filepath, audio_path, metadata)
-    
-    if not success:
-        await original_message.reply("❌ НЕ УДАЛОСЬ ИЗВЛЕЧЬ ЗВУК.")
-        return
-    
-    try:
-        audio_file = FSInputFile(audio_path)
-        await original_message.reply_audio(
-            audio=audio_file, 
-            title=metadata.get("title"), 
-            performer=metadata.get("artist")
-        )
+    async with aiohttp.ClientSession() as session:
+        # 1. Извлекаем аудио из видео
+        success = await extract_audio_with_ffmpeg(video_filepath, audio_path, {})
+        if not success:
+            await original_message.reply("НЕ УДАЛОСЬ\nИЗВЛЕЧЬ\nЗВУК.")
+            return
 
-        await bot.edit_message_reply_markup(chat_id=original_message.chat.id, message_id=original_message.message_id, reply_markup=None)
-        
-        await delete_temp_file(audio_path, delay=10)
+        # 2. Распознаем трек
+        caption_text = await recognize_song_from_file(session, audio_path)
 
-        if message_id in AUDIO_URL_CACHE:
-            del AUDIO_URL_CACHE[message_id]
-            
-    except Exception as e:
-        logging.exception("An error occurred while sending extracted audio.")
-        await original_message.reply(f"❌ ПРОИЗОШЛА ВНУТРЕННЯЯ ОШИБКА: {e}")
+        # 3. Получаем метаданные для заголовка аудио
+        oembed_data = await get_tiktok_oembed_info(cache_entry["original_url"])
+        metadata = {"title": "Audio", "artist": "Unknown"}
+        if oembed_data:
+            metadata = {"title": oembed_data.get("title"), "artist": oembed_data.get("author_name")}
+
+        # 4. Отправляем аудио с результатом
+        try:
+            audio_file = FSInputFile(audio_path)
+            await original_message.reply_audio(
+                audio=audio_file,
+                title=metadata.get("title"),
+                performer=metadata.get("artist"),
+                caption=caption_text if caption_text else None,
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            logging.exception("An error occurred while sending extracted audio.")
+            await original_message.reply(f"ПРОИЗОШЛА\nВНУТРЕННЯЯ\nОШИБКА:\n{e}")
+        finally:
+            # 5. Очищаем временные файлы
+            await delete_temp_file(audio_path, delay=10)
+            if message_id in AUDIO_URL_CACHE:
+                del AUDIO_URL_CACHE[message_id]
