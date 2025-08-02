@@ -5,7 +5,7 @@ import logging
 import subprocess
 from aiogram import Router, F, Bot
 from aiogram.enums import ChatType
-from aiogram.types import Message, ChatFullInfo, FSInputFile, CallbackQuery
+from aiogram.types import Message, ChatFullInfo, FSInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from db.db import Pronouns
 from utils.check_admin import check_admin
 from utils.delete_message import delete_message
@@ -15,7 +15,7 @@ from utils.pronouns import do_pronouns
 from utils.update import update
 from utils.youtube_downloader import do_youtube, get_youtube_video_id
 from utils.cobalt_downloader import (
-    do_cobalt_download, get_cobalt_link, get_tiktok_oembed_info, 
+    do_cobalt_download, get_cobalt_link, get_tiktok_oembed_info,
     get_cobalt_audio_metadata, delete_temp_file
 )
 from data.loader import main_chat_id
@@ -52,17 +52,17 @@ def is_this_a_comment_section(chat: ChatFullInfo) -> bool:
     return chat.linked_chat_id is not None
 
 async def extract_audio_with_ffmpeg(video_path: str, audio_path: str, metadata: dict) -> bool:
-    """Конвертує аудіо в MP3 і вбудовує метадані."""
+    """Конвертирует аудио в MP3 и встраивает метаданные."""
     try:
         command = [
             'ffmpeg', '-i', video_path,
-            '-vn',                # Відключити відео
-            '-acodec', 'libmp3lame',# Вказати кодек MP3
-            '-q:a', '2',          # Висока якість VBR
-            '-y'                  # Перезаписати файл
+            '-vn',                # Отключить видео
+            '-acodec', 'libmp3lame',# Указать кодек MP3
+            '-q:a', '2',          # Высокое качество VBR
+            '-y'                  # Перезаписать файл
         ]
         
-        # Додаємо метадані, якщо вони є
+        # Добавляем метаданные, если они есть
         if metadata.get("title"):
             command.extend(['-metadata', f'title={metadata["title"]}'])
         if metadata.get("artist"):
@@ -203,7 +203,7 @@ async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
 
     cache_entry = AUDIO_URL_CACHE.get(message_id)
     if not cache_entry:
-        await callback_query.answer("ПОМИЛКА: Дані не знайдено.", show_alert=True)
+        await callback_query.answer("ОШИБКА: Данные не найдены.", show_alert=True)
         return
 
     video_filepath = cache_entry["filepath"]
@@ -211,7 +211,7 @@ async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
     host = cache_entry["host"]
 
     if not os.path.exists(video_filepath):
-        await callback_query.answer("ПОМИЛКА: Вихідний відеофайл вже видалено.", show_alert=True)
+        await callback_query.answer("ОШИБКА: Исходный видеофайл уже удалён.", show_alert=True)
         return
 
     await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...", show_alert=False)
