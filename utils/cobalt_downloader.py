@@ -9,6 +9,7 @@ from aiogram.types import Message, ReactionTypeEmoji, FSInputFile, InlineKeyboar
 from aiogram.utils.media_group import MediaGroupBuilder
 import os
 import logging
+import subprocess
 from data.cache import AUDIO_URL_CACHE
 
 TEMP_DOWNLOAD_DIR = "temp_downloads"
@@ -123,6 +124,53 @@ async def delete_temp_file(filepath: str, delay: int = 30):
     except Exception as e:
         logging.error(f"Error deleting temporary file {filepath}: {e}")
 
+async def _embed_metadata_ffmpeg(audio_path: str, metadata: dict, cover_path: str | None) -> str:
+    """
+    Встраивает метаданные и обложку в аудиофайл с помощью FFmpeg.
+    Возвращает путь к новому файлу или путь к оригинальному файлу в случае ошибки.
+    """
+    output_path = f"{os.path.splitext(audio_path)[0]}_with_meta.mp3"
+    
+    try:
+        command = ['ffmpeg', '-y', '-i', audio_path]
+
+        if cover_path and os.path.exists(cover_path):
+             command.extend(['-i', cover_path, '-map', '0:a', '-map', '1:v', '-c:v', 'mjpeg'])
+        else:
+             command.extend(['-map', '0:a'])
+
+        command.extend(['-c:a', 'copy', '-id3v2_version', '3'])
+
+        metadata_map = {
+            "title": "title", "artist": "artist", "album_artist": "album_artist",
+            "album": "album", "composer": "composer", "genre": "genre",
+            "date": "date", "copyright": "copyright", "track": "track"
+        }
+        for key, ffmpeg_key in metadata_map.items():
+            if metadata.get(key):
+                command.extend(['-metadata', f'{ffmpeg_key}={metadata[key]}'])
+        
+        if cover_path:
+            command.extend(['-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)'])
+
+        command.append(output_path)
+        
+        logging.info(f"Running FFmpeg command: {' '.join(command)}")
+        process = await asyncio.create_subprocess_exec(*command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logging.error(f"FFmpeg failed while embedding metadata. Stderr: {stderr.decode(errors='ignore')}")
+            return audio_path 
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            return output_path
+        return audio_path
+
+    except Exception:
+        logging.exception("An exception occurred during FFmpeg metadata embedding.")
+        return audio_path
+
 async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool = False):
     url = get_cobalt_link(msg.text or "")
     if is_youtube_fallback and not url:
@@ -142,10 +190,67 @@ async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool =
             logging.warning(f"Failed to resolve/clean TikTok URL: {e}.")
     
     is_tiktok_video = not is_youtube_fallback and 'tiktok.com' in url
+    is_soundcloud_audio = 'soundcloud.com' in url
     
     async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0...'}) as session:
-        metadata_oembed = await get_tiktok_oembed_info(url) if is_tiktok_video else None
         chosen_host = random.choice(COBALT_API_HOSTS)
+
+        if is_soundcloud_audio:
+            try:
+                await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
+                
+                payload = {"url": url, "localProcessing": "forced", "audioFormat": "mp3"}
+                headers = {"Accept": "application/json", "Content-Type": "application/json"}
+                api_url = f"https://{chosen_host}/"
+                
+                async with session.post(api_url, json=payload, headers=headers, timeout=45) as response:
+                    if response.status != 200:
+                        await msg.reply(f"❌ Ошибка от Cobalt: {response.status}")
+                        return
+                    data = await response.json()
+                    logging.info(f"COBALT API RESPONSE: {data}")
+
+
+                if data.get("status") != "local-processing":
+                    await msg.reply(f"❌ Cobalt вернул непредвиденный статус: {data.get('status')}")
+                    return
+
+                audio_url = data["tunnel"][0]
+                metadata = data.get("output", {}).get("metadata", {})
+                filename = data.get("output", {}).get("filename", "audio.mp3")
+                filepath = os.path.join(TEMP_DOWNLOAD_DIR, f"{random.randint(1000, 9999)}_{filename}")
+                
+                async with session.get(audio_url, timeout=120) as file_response:
+                    with open(filepath, "wb") as f:
+                        f.write(await file_response.read())
+
+                cover_path = None
+                if data.get("audio", {}).get("cover") and len(data["tunnel"]) > 1:
+                    cover_url = data["tunnel"][1]
+                    cover_path = f"{os.path.splitext(filepath)[0]}.jpg"
+                    async with session.get(cover_url, timeout=30) as cover_response:
+                        with open(cover_path, "wb") as f:
+                            f.write(await cover_response.read())
+                
+                final_audio_path = await _embed_metadata_ffmpeg(filepath, metadata, cover_path)
+
+                audio_file = FSInputFile(final_audio_path, filename=filename)
+                await msg.reply_audio(
+                    audio=audio_file,
+                    title=metadata.get("title"),
+                    performer=metadata.get("artist")
+                )
+                
+                await delete_temp_file(filepath, delay=5)
+                if cover_path: await delete_temp_file(cover_path, delay=5)
+                if final_audio_path != filepath: await delete_temp_file(final_audio_path, delay=5)
+
+            except Exception as e:
+                logging.exception("Ошибка при обработке ссылки SoundCloud.")
+                await msg.reply(f"❌ ВНУТРЕННЯЯ ОШИБКА: {e}")
+            return
+
+        metadata_oembed = await get_tiktok_oembed_info(url) if is_tiktok_video else None
         
         try:
             await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
