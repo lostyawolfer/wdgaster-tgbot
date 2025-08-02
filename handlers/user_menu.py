@@ -1,9 +1,11 @@
 import os
 import asyncio
 import re
+import logging
+import subprocess
 from aiogram import Router, F, Bot
 from aiogram.enums import ChatType
-from aiogram.types import Message, ChatFullInfo, FSInputFile
+from aiogram.types import Message, ChatFullInfo, FSInputFile, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from db.db import Pronouns
 from utils.check_admin import check_admin
 from utils.delete_message import delete_message
@@ -12,8 +14,13 @@ from info.message_triggers import contains_triggers, admin_action_triggers, chan
 from utils.pronouns import do_pronouns
 from utils.update import update
 from utils.youtube_downloader import do_youtube, get_youtube_video_id
-from utils.cobalt_downloader import do_cobalt_download, get_cobalt_link
+from utils.cobalt_downloader import (
+    do_cobalt_download, get_cobalt_link, get_tiktok_oembed_info,
+    get_cobalt_audio_metadata, delete_temp_file
+)
 from data.loader import main_chat_id
+from data.cache import AUDIO_URL_CACHE, SHAZAM_AUDIO_CACHE
+import aiohttp
 
 deactivated = False
 
@@ -41,58 +48,88 @@ def trigger_message(triggers: dict, main_str: str, check_method: int = 0, is_adm
     return None
 
 def is_this_a_comment_section(chat: ChatFullInfo) -> bool:
-    print(chat.linked_chat_id)
+    logging.info(f"Checking if chat is a comment section. Linked chat ID: {chat.linked_chat_id}")
     return chat.linked_chat_id is not None
+
+async def extract_audio_with_ffmpeg(video_path: str, audio_path: str, metadata: dict) -> bool:
+    """Конвертирует аудио в MP3 и встраивает метаданные."""
+    try:
+        command = [
+            'ffmpeg', '-i', video_path,
+            '-vn',                # Отключить видео
+            '-acodec', 'libmp3lame',# Указать кодек MP3
+            '-q:a', '2',          # Высокое качество VBR
+            '-y'                  # Перезаписать файл
+        ]
+        
+        # Добавляем метаданные, если они есть
+        if metadata.get("title"):
+            command.extend(['-metadata', f'title={metadata["title"]}'])
+        if metadata.get("artist"):
+            command.extend(['-metadata', f'artist={metadata["artist"]}'])
+        
+        command.append(audio_path)
+        
+        logging.info(f"Running FFmpeg command: {' '.join(command)}")
+        process = await asyncio.create_subprocess_exec(*command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        _, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logging.error(f"FFmpeg failed. Stderr: {stderr.decode(errors='ignore')}")
+            return False
+        
+        return os.path.exists(audio_path) and os.path.getsize(audio_path) > 0
+            
+    except FileNotFoundError:
+        logging.error("FFmpeg command not found. Make sure FFmpeg is installed and in your system's PATH.")
+        return False
+    except Exception:
+        logging.exception("An exception occurred during FFmpeg audio extraction.")
+        return False
 
 @router.message(F.chat.type.in_({ChatType.SUPERGROUP, ChatType.GROUP, ChatType.PRIVATE}))
 async def main(msg: Message, bot: Bot):
     message_text = msg.text if msg.text else " "
-
-    # --- Group-Specific Logic ---
     is_admin = False
     if msg.chat.type != ChatType.PRIVATE:
-        chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
-        is_admin = check_admin(chat_member, msg)
-        is_decorative_admin = check_admin(chat_member, msg, decorative=True)
-
-        if is_this_a_comment_section(await bot.get_chat(msg.chat.id)):
-            await delete_message(msg, bot, is_admin, is_decorative_admin)
-    # --- End Group-Specific Logic ---
+        try:
+            chat_member = await bot.get_chat_member(chat_id=msg.chat.id, user_id=msg.from_user.id)
+            is_admin = check_admin(chat_member, msg)
+            is_decorative_admin = check_admin(chat_member, msg, decorative=True)
+            chat_info = await bot.get_chat(msg.chat.id)
+            if is_this_a_comment_section(chat_info):
+                await delete_message(msg, bot, is_admin, is_decorative_admin)
+                return
+        except Exception as e:
+            logging.error(f"Error in group-specific logic for chat {msg.chat.id}: {e}")
 
     if message_text.lower() == "г!обновись" and msg.from_user.id == 653632008:
         await update(msg, bot)
         return
 
     global deactivated
-    if (message_text.lower() == "г!вырубись" or message_text.lower() == "г!выключись" or message_text.lower() == "г!убейся") and is_admin:
+    if (message_text.lower() in ["г!вырубись", "г!выключись", "г!убейся"]) and is_admin:
         deactivated = True
         await msg.reply('БОТ ДЕАКТИВИРОВАН.\nВКЛЮЧИТЬ: Г!ВКЛЮЧИСЬ'.upper())
-
-    if (message_text.lower() == "г!врубись" or message_text.lower() == "г!включись" or message_text.lower() == "г!воскресни") and is_admin:
+        return
+    if (message_text.lower() in ["г!врубись", "г!включись", "г!воскресни"]) and is_admin:
         deactivated = False
         await msg.reply('БОТ СНОВА АКТИВЕН.'.upper())
-
+        return
     if deactivated:
         return
 
     if msg.new_chat_members:
         await msg.reply(
             "ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ СВОЙ ВКЛАД\nВ ЭТО.\n\n-----------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ ЭТОЙ ГРУППЫ.\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
+        return
 
-
-    # --- Downloader Logic ---
-    is_youtube = get_youtube_video_id(message_text) is not None
-    is_cobalt_supported = get_cobalt_link(message_text) is not None
-
-    if is_youtube:
-        yt_dlp_success = await do_youtube(msg, bot)
-        if not yt_dlp_success:
-            # If yt-dlp fails, fallback to cobalt
-            await do_cobalt_download(msg, bot, is_youtube_fallback=True)
-    elif is_cobalt_supported:
-        # If it's not a YouTube link, but is another supported link, use cobalt
-        await do_cobalt_download(msg, bot)
-    # --- End Downloader Logic ---
+    if get_youtube_video_id(message_text) or get_cobalt_link(message_text):
+        if get_youtube_video_id(message_text):
+            if not await do_youtube(msg, bot):
+                await do_cobalt_download(msg, bot, is_youtube_fallback=True)
+        else:
+            await do_cobalt_download(msg, bot)
 
     await do_pronouns(msg, bot)
 
@@ -157,3 +194,90 @@ async def main(msg: Message, bot: Bot):
             await msg.answer(text_to_repeat.upper())
 
     #if is_admin and (message_text.lower().startswith("г!локдаун") or message_text.lower().startswith("г!локдаун"))
+
+async def recognize_song_from_file(session: aiohttp.ClientSession, filepath: str) -> str:
+    """Распознает трек и возвращает отформатированную строку или пустую строку."""
+    if not os.path.exists(filepath):
+        return ""
+    try:
+        with open(filepath, "rb") as audio_file:
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', audio_file, filename=os.path.basename(filepath), content_type='audio/mpeg')
+            shazam_api_url = "https://shz.aartzz.pp.ua/recognize_song/"
+            async with session.post(shazam_api_url, data=form_data, timeout=30) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result and result.get("track"):
+                        track = result["track"]
+                        title = track.get("title", "Неизвестно")
+                        artist = track.get("subtitle", "Неизвестно")
+                        shazam_url = track.get("share", {}).get("href", "")
+                        if shazam_url:
+                            return f'🎶 <a href="{shazam_url}">{artist} - {title}</a>'
+                else:
+                    logging.error(f"Shazam API error: {response.status} - {await response.text()}")
+                    return ""
+    except Exception:
+        logging.exception("An error occurred during song recognition.")
+    return ""
+
+@router.callback_query(F.data.startswith("extract_audio:"))
+async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
+    message_id = int(callback_query.data.split(":", 1)[1])
+    original_message = callback_query.message
+    logging.info(f"Callback received for message_id: {message_id}")
+
+    await bot.edit_message_reply_markup(
+        chat_id=original_message.chat.id, 
+        message_id=original_message.message_id, 
+        reply_markup=None
+    )
+
+    cache_entry = AUDIO_URL_CACHE.get(message_id)
+    if not cache_entry:
+        await callback_query.answer("ОШИБКА.\nДАННЫЕ ИССЕЗЛИ.", show_alert=True)
+        return
+
+    video_filepath = cache_entry["filepath"]
+    if not os.path.exists(video_filepath):
+        await callback_query.answer("ОШИБКА.\nИСХОДНЫЙ ФАЙЛ УЖЕ УДАЛЁН.", show_alert=True)
+        return
+
+    await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...\nЭТОТ ПРОЦЕСС\nМОЖЕТ ЗАНЯТЬ\nНЕКОТОРОЕ ВРЕМЯ.", show_alert=False)
+    
+    audio_path = f"{os.path.splitext(video_filepath)[0]}.mp3"
+    
+    async with aiohttp.ClientSession() as session:
+        # 1. Извлекаем аудио из видео
+        success = await extract_audio_with_ffmpeg(video_filepath, audio_path, {})
+        if not success:
+            await original_message.reply("НЕ УДАЛОСЬ\nИЗВЛЕЧЬ\nЗВУК.")
+            return
+
+        # 2. Распознаем трек
+        caption_text = await recognize_song_from_file(session, audio_path)
+
+        # 3. Получаем метаданные для заголовка аудио
+        oembed_data = await get_tiktok_oembed_info(cache_entry["original_url"])
+        metadata = {"title": "Audio", "artist": "Unknown"}
+        if oembed_data:
+            metadata = {"title": oembed_data.get("title"), "artist": oembed_data.get("author_name")}
+
+        # 4. Отправляем аудио с результатом
+        try:
+            audio_file = FSInputFile(audio_path)
+            await original_message.reply_audio(
+                audio=audio_file,
+                title=metadata.get("title"),
+                performer=metadata.get("artist"),
+                caption=caption_text if caption_text else None,
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            logging.exception("An error occurred while sending extracted audio.")
+            await original_message.reply(f"ПРОИЗОШЛА\nВНУТРЕННЯЯ\nОШИБКА:\n{e}")
+        finally:
+            # 5. Очищаем временные файлы
+            await delete_temp_file(audio_path, delay=10)
+            if message_id in AUDIO_URL_CACHE:
+                del AUDIO_URL_CACHE[message_id]

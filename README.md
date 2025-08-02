@@ -40,6 +40,7 @@ To run your own instance of the W. D. Gaster bot, follow these steps.
 
 * [Python 3.10](https://www.python.org/downloads/) or newer
 * [Git](https://git-scm.com/downloads)
+* [FFmpeg](https://ffmpeg.org/download.html) installed in PATH
 
 ### Installation & Setup
 
