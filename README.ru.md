@@ -34,6 +34,7 @@
 
 * [Python 3.10](https://www.python.org/downloads/) или новее
 * [Git](https://git-scm.com/downloads)
+* [FFmpeg](https://ffmpeg.org/download.html) установлен у PATH
 
 ### Установка и настройка
 

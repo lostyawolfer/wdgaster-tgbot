@@ -32,8 +32,9 @@
 
 ### Вимоги
 
-* Python 3.10 або новіша версія
-* Git
+* [Python 3.10](https://www.python.org/downloads/) або новіша версія
+* [Git](https://git-scm.com/downloads)
+* [FFmpeg](https://ffmpeg.org/download.html) встановлений у PATH
 
 ### Встановлення та налаштування
 
