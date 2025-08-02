@@ -70,7 +70,7 @@ async def get_cobalt_audio_metadata(session: aiohttp.ClientSession, url: str, ho
             data = await response.json()
             logging.info(f"Cobalt POST response for metadata: {data}")
             
-            if data.get("status") == "local-processing" and "output" in data and "metadata" in data["output"]:
+            if data.get("status") in ["local-processing", "picker"] and data.get("output", {}).get("metadata"):
                 metadata = data["output"]["metadata"]
                 return {
                     "title": metadata.get("title"),
@@ -81,20 +81,38 @@ async def get_cobalt_audio_metadata(session: aiohttp.ClientSession, url: str, ho
         logging.exception(f"An error occurred during Cobalt metadata request for URL {url}")
         return None
 
-async def download_with_cobalt(session: aiohttp.ClientSession, url: str, host: str) -> dict | None:
+async def download_with_cobalt(session: aiohttp.ClientSession, url: str, host: str) -> tuple[dict | list | None, dict | None]:
     payload = {"url": url, "videoQuality": "720"}
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
     api_url = f"https://{host}/"
-    logging.info(f"Requesting video from {api_url} for URL: {url}")
+    logging.info(f"Requesting from {api_url} for URL: {url}")
 
     try:
         async with session.post(api_url, json=payload, headers=headers, timeout=45) as response:
             if response.status != 200:
-                logging.error(f"Video request to Cobalt failed: {response.status} - {await response.text()}")
-                return None
+                logging.error(f"Request to Cobalt failed: {response.status} - {await response.text()}")
+                return None, None
             
             data = await response.json()
-            if data.get("status") in ["stream", "tunnel"]:
+            logging.info(f"Cobalt response: {data}")
+
+            if data.get("status") == "picker":
+                downloaded_files = []
+                for item in data.get("picker", []):
+                    item_url = item.get("url")
+                    if item_url:
+                        filename = os.path.basename(item_url.split('?')[0])
+                        filepath = os.path.join(TEMP_DOWNLOAD_DIR, f"{random.randint(1000, 9999)}_{filename}")
+                        async with session.get(item_url, timeout=60) as file_response:
+                            if file_response.status == 200:
+                                content = await file_response.read()
+                                if content:
+                                    with open(filepath, "wb") as f:
+                                        f.write(content)
+                                    downloaded_files.append({"filepath": filepath, "type": item.get("type")})
+                return downloaded_files, data
+            
+            elif data.get("status") in ["stream", "tunnel"]:
                 download_url = data.get("url")
                 filename = data.get("filename", "video.mp4")
                 filepath = os.path.join(TEMP_DOWNLOAD_DIR, f"{random.randint(1000, 9999)}_{filename}")
@@ -103,17 +121,17 @@ async def download_with_cobalt(session: aiohttp.ClientSession, url: str, host: s
                     if file_response.status == 200:
                         content = await file_response.read()
                         if not content:
-                            logging.error(f"Downloaded video file from {download_url} is empty.")
-                            return None
+                            logging.error(f"Downloaded file from {download_url} is empty.")
+                            return None, data
                         with open(filepath, "wb") as f:
                             f.write(content)
-                        return {"filepath": filepath, "filename": filename}
+                        return {"filepath": filepath, "filename": filename}, data
             else:
-                logging.error(f"Host {host} returned unexpected status for video: {data}")
-                return None
+                logging.error(f"Host {host} returned unexpected status: {data}")
+                return None, data
     except Exception as e:
-        logging.exception(f"An unexpected error occurred during video download for URL {url}")
-        return None
+        logging.exception(f"An unexpected error occurred during download for URL {url}")
+        return None, None
 
 async def delete_temp_file(filepath: str, delay: int = 30):
     await asyncio.sleep(delay)
@@ -123,53 +141,6 @@ async def delete_temp_file(filepath: str, delay: int = 30):
             logging.info(f"Deleted temporary file: {filepath}")
     except Exception as e:
         logging.error(f"Error deleting temporary file {filepath}: {e}")
-
-async def _embed_metadata_ffmpeg(audio_path: str, metadata: dict, cover_path: str | None) -> str:
-    """
-    Встраивает метаданные и обложку в аудиофайл с помощью FFmpeg.
-    Возвращает путь к новому файлу или путь к оригинальному файлу в случае ошибки.
-    """
-    output_path = f"{os.path.splitext(audio_path)[0]}_with_meta.mp3"
-    
-    try:
-        command = ['ffmpeg', '-y', '-i', audio_path]
-
-        if cover_path and os.path.exists(cover_path):
-             command.extend(['-i', cover_path, '-map', '0:a', '-map', '1:v', '-c:v', 'mjpeg'])
-        else:
-             command.extend(['-map', '0:a'])
-
-        command.extend(['-c:a', 'copy', '-id3v2_version', '3'])
-
-        metadata_map = {
-            "title": "title", "artist": "artist", "album_artist": "album_artist",
-            "album": "album", "composer": "composer", "genre": "genre",
-            "date": "date", "copyright": "copyright", "track": "track"
-        }
-        for key, ffmpeg_key in metadata_map.items():
-            if metadata.get(key):
-                command.extend(['-metadata', f'{ffmpeg_key}={metadata[key]}'])
-        
-        if cover_path:
-            command.extend(['-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)'])
-
-        command.append(output_path)
-        
-        logging.info(f"Running FFmpeg command: {' '.join(command)}")
-        process = await asyncio.create_subprocess_exec(*command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = await process.communicate()
-        
-        if process.returncode != 0:
-            logging.error(f"FFmpeg failed while embedding metadata. Stderr: {stderr.decode(errors='ignore')}")
-            return audio_path 
-        
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            return output_path
-        return audio_path
-
-    except Exception:
-        logging.exception("An exception occurred during FFmpeg metadata embedding.")
-        return audio_path
 
 async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool = False):
     url = get_cobalt_link(msg.text or "")
@@ -189,101 +160,83 @@ async def do_cobalt_download(msg: Message, bot: Bot, is_youtube_fallback: bool =
         except Exception as e:
             logging.warning(f"Failed to resolve/clean TikTok URL: {e}.")
     
-    is_tiktok_video = not is_youtube_fallback and 'tiktok.com' in url
-    is_soundcloud_audio = 'soundcloud.com' in url
+    is_tiktok_video = not is_youtube_fallback and 'tiktok.com' in url and '/photo/' not in url
+    is_tiktok_photo = not is_youtube_fallback and 'tiktok.com' in url and '/photo/' in url
     
     async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0...'}) as session:
         chosen_host = random.choice(COBALT_API_HOSTS)
-
-        if is_soundcloud_audio:
-            try:
-                await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
-                
-                payload = {"url": url, "localProcessing": "forced", "audioFormat": "mp3"}
-                headers = {"Accept": "application/json", "Content-Type": "application/json"}
-                api_url = f"https://{chosen_host}/"
-                
-                async with session.post(api_url, json=payload, headers=headers, timeout=45) as response:
-                    if response.status != 200:
-                        await msg.reply(f"❌ Ошибка от Cobalt: {response.status}")
-                        return
-                    data = await response.json()
-                    logging.info(f"COBALT API RESPONSE: {data}")
-
-
-                if data.get("status") != "local-processing":
-                    await msg.reply(f"❌ Cobalt вернул непредвиденный статус: {data.get('status')}")
-                    return
-
-                audio_url = data["tunnel"][0]
-                metadata = data.get("output", {}).get("metadata", {})
-                filename = data.get("output", {}).get("filename", "audio.mp3")
-                filepath = os.path.join(TEMP_DOWNLOAD_DIR, f"{random.randint(1000, 9999)}_{filename}")
-                
-                async with session.get(audio_url, timeout=120) as file_response:
-                    with open(filepath, "wb") as f:
-                        f.write(await file_response.read())
-
-                cover_path = None
-                if data.get("audio", {}).get("cover") and len(data["tunnel"]) > 1:
-                    cover_url = data["tunnel"][1]
-                    cover_path = f"{os.path.splitext(filepath)[0]}.jpg"
-                    async with session.get(cover_url, timeout=30) as cover_response:
-                        with open(cover_path, "wb") as f:
-                            f.write(await cover_response.read())
-                
-                final_audio_path = await _embed_metadata_ffmpeg(filepath, metadata, cover_path)
-
-                audio_file = FSInputFile(final_audio_path, filename=filename)
-                await msg.reply_audio(
-                    audio=audio_file,
-                    title=metadata.get("title"),
-                    performer=metadata.get("artist")
-                )
-                
-                await delete_temp_file(filepath, delay=5)
-                if cover_path: await delete_temp_file(cover_path, delay=5)
-                if final_audio_path != filepath: await delete_temp_file(final_audio_path, delay=5)
-
-            except Exception as e:
-                logging.exception("Ошибка при обработке ссылки SoundCloud.")
-                await msg.reply(f"❌ ВНУТРЕННЯЯ ОШИБКА: {e}")
-            return
-
-        metadata_oembed = await get_tiktok_oembed_info(url) if is_tiktok_video else None
         
         try:
             await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_DOCUMENT)
         except Exception: pass
 
-        download_info = await download_with_cobalt(session, url, chosen_host)
+        download_info, cobalt_response = await download_with_cobalt(session, url, chosen_host)
 
-        if download_info and download_info.get('filepath'):
-            video_file = FSInputFile(download_info['filepath'], filename=download_info['filename'])
+        if download_info:
+            author_name = "АВТОР"
+            author_url = "#"
+            description = ""
             
-            author_name = metadata_oembed.get("artist") if metadata_oembed else "АВТОР"
-            author_url = metadata_oembed.get("author_url") if metadata_oembed else "#"
-            description = metadata_oembed.get("title") if metadata_oembed else ""
-            
+            # Отримання метаданих
+            if is_tiktok_photo and cobalt_response and cobalt_response.get("audioFilename"):
+                # Для галерей найнадійніше брати з назви аудіофайлу
+                match = re.search(r'tiktok_([^_]+)_', cobalt_response["audioFilename"])
+                if match:
+                    username = match.group(1)
+                    author_name = username
+                    author_url = f"https://www.tiktok.com/@{username}"
+            elif is_tiktok_video:
+                # Для відео oEmbed працює добре
+                metadata = await get_tiktok_oembed_info(url)
+                if metadata:
+                    author_name = metadata.get("artist", author_name)
+                    author_url = metadata.get("author_url", author_url)
+                    description = metadata.get("title", description)
+
             caption = f'<a href="{author_url}">{author_name.upper()}</a>'
             if description:
                 caption += f'\n\n<blockquote expandable>{description.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</blockquote>'
-            
-            try:
-                sent_message = await msg.reply_document(video_file, caption=caption, parse_mode='HTML')
-                if is_tiktok_video:
-                    AUDIO_URL_CACHE[sent_message.message_id] = {
-                        "filepath": download_info['filepath'],
-                        "original_url": original_url,
-                        "host": chosen_host
-                    }
-                    button = InlineKeyboardButton(text="🎧ИЗВЛЕЧЬ ЗВУК", callback_data=f"extract_audio:{sent_message.message_id}")
-                    keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
-                    await bot.edit_message_reply_markup(chat_id=sent_message.chat.id, message_id=sent_message.message_id, reply_markup=keyboard)
+
+            # Логіка для галерей
+            if isinstance(download_info, list):
+                media_group = MediaGroupBuilder()
                 
-                asyncio.create_task(delete_temp_file(download_info['filepath'], delay=600))
-            except Exception as e:
-                logging.exception("Error sending document.")
-                await msg.reply(f"❌ ВНУТРЕННЯЯ ОШИБКА: {e}")
+                if download_info:
+                    first_item = download_info.pop(0)
+                    media_group.add_photo(media=FSInputFile(first_item['filepath']), caption=caption, parse_mode='HTML')
+                    asyncio.create_task(delete_temp_file(first_item['filepath'], delay=600))
+                
+                for item in download_info:
+                    if item.get("type") == "photo":
+                        media_group.add_photo(media=FSInputFile(item['filepath']))
+                        asyncio.create_task(delete_temp_file(item['filepath'], delay=600))
+                
+                try:
+                    if media_group.build():
+                        await msg.reply_media_group(media=media_group.build())
+                except Exception as e:
+                    logging.exception("Error sending media group.")
+                    await msg.reply(f"❌ ВНУТРЕННЯЯ ОШИБКА: {e}")
+
+            # Логіка для одного файлу (відео)
+            elif isinstance(download_info, dict) and download_info.get('filepath'):
+                video_file = FSInputFile(download_info['filepath'], filename=download_info['filename'])
+                
+                try:
+                    sent_message = await msg.reply_document(video_file, caption=caption, parse_mode='HTML')
+                    if is_tiktok_video:
+                        AUDIO_URL_CACHE[sent_message.message_id] = {
+                            "filepath": download_info['filepath'],
+                            "original_url": original_url,
+                            "host": chosen_host
+                        }
+                        button = InlineKeyboardButton(text="🎧ИЗВЛЕЧЬ ЗВУК", callback_data=f"extract_audio:{sent_message.message_id}")
+                        keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+                        await bot.edit_message_reply_markup(chat_id=sent_message.chat.id, message_id=sent_message.message_id, reply_markup=keyboard)
+                    
+                    asyncio.create_task(delete_temp_file(download_info['filepath'], delay=600))
+                except Exception as e:
+                    logging.exception("Error sending document.")
+                    await msg.reply(f"❌ ВНУТРЕННЯЯ ОШИБКА: {e}")
         else:
             await msg.reply("❌ ВНУТРЕННЯЯ ОШИБКА СКАЧИВАНИЯ (COBALT).")
