@@ -119,7 +119,7 @@ async def main(msg: Message, bot: Bot):
         if is_any_from(message_command, ["созвать админов", "позвать админов", "позови админов", "у нас проблемы"]):
             await msg.reply("<b><u>ВЫЗЫВАЮ ВСЕХ АДМИНИСТРАТОРОВ</u></b>\n"
                             "ОБРАТИ ВНИМАНИЕ, ЧТО ИСПОЛЬЗОВАНИЕ ЭТОЙ КОМАНДЫ В СИТУАЦИЯХ, КОТОРЫЕ ЭТОГО НЕ ТРЕБУЮТ, КАРАЕТСЯ ВАРНОМ.\n\n"
-                            "@HEHE_FITILECHEK @CRISPXMINT @AZUREOUSHUE @DAS_FICK @LITA_PENGUI @WHENIMDEAD @MASLO13KINNIE", parse_mode='HTML')
+                            "@HEHE_FITILECHEK @CRISPXMINT @AZUREOUSHUE @DAS_FICK @LITA_PENGUI @WHENIMDEAD @MASLO13KINNIE @LOSTYAWOLFER", parse_mode='HTML')
 
         if is_any_from(message_command, ["оне/ено", "оне", "неомест", "неоместоимения"]):
             await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')),
