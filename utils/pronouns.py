@@ -37,7 +37,7 @@ async def do_pronouns(msg, bot: Bot):
         db_pronouns.rm_pronouns(msg.from_user.id)
 
     elif ((message_text.lower() == "мои местоимения" or message_text.lower() == "мои мест" or message_text.lower() == "мои мѣстоименiя" or message_text.lower() == "мои мѣстоименья" or message_text.lower() == "мои мѣстъ") or
-          ((message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "мѣстоименiя" or message_text.lower() == "мѣстоименья" or message_text.lower() == "мѣстъ") and not msg.reply_to_message)):
+          ((message_text.lower() == "местоимения" or message_text.lower() == "мест" or message_text.lower() == "мѣстоименiя" or message_text.lower() == "мѣстоименья" or message_text.lower() == "мѣстъ" or message_text.lower() == "кто я") and not msg.reply_to_message)):
         pronouns = db_pronouns.get_pronouns(msg.from_user.id)
         if pronouns is not None:
             await msg.reply(f"МЕСТОИМЕНИЯ {user_link}:\n{pronouns.upper()}.", parse_mode='HTML')
