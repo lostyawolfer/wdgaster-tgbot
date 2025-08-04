@@ -144,7 +144,7 @@ async def main(msg: Message, bot: Bot):
                 converted_text += conversion_map.get(char, char)
             await msg.reply(f'<b><u>ЗАШИФРОВАННЫЙ В WINGDINGS ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
 
-        elif is_any_from_startswith(message_command, ["вингдингс "]) and msg.reply_to_message:
+        elif is_any_from_startswith(message_command, ["вингдингс"]) and msg.reply_to_message:
             requested_text = msg.reply_to_message.text
             converted_text = ""
             for char in requested_text:
