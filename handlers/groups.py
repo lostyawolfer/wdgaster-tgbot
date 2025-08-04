@@ -132,6 +132,8 @@ async def main(msg: Message, bot: Bot):
             resulting_rule = rules.get(requested_rule)
             if resulting_rule:
                 await msg.reply(resulting_rule, parse_mode='HTML')
+            else:
+                await msg.reply("ТАКОГО ПРАВИЛА\nНЕ СУЩЕСТВУЕТ.")
             return
 
         if is_any_from_startswith(message_command, ["спойлеры"]):
