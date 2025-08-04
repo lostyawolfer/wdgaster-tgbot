@@ -137,7 +137,8 @@ async def main(msg: Message, bot: Bot):
                 "НА ДАННЫЙ МОМЕНТ,\nСПОЙЛЕРНЫЙ РЕЖИМ ОТКЛЮЧЕН.\n\nПОСЛЕДНИЙ РАЗ СПОЙЛЕРНЫЙ РЕЖИМ\nБЫЛ АКТИВЕН\n<b>13 ИЮЛЯ.</b>",
                 parse_mode='HTML')
 
-        elif is_any_from_startswith(message_command, ["вингдингс ", "вингдингс \n"]):
+        elif is_any_from_startswith(message_command, ["вингдингс ", '''вингдингс
+''']):
             requested_text = message_command[len("вингдингс "):]
             converted_text = ""
             for char in requested_text:
