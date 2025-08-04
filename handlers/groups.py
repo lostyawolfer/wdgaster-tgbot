@@ -17,12 +17,13 @@ from utils.update import update
 from utils.wingdings_conversion_map import conversion_map, conversion_map_backwards
 from utils.youtube_downloader import do_youtube, get_youtube_video_id
 from utils.cobalt_downloader import (
-    do_cobalt_download, get_cobalt_link, get_tiktok_oembed_info, delete_temp_file
+    do_cobalt_download, get_cobalt_link, get_tiktok_oembed_info, delete_temp_file,
+    download_with_cobalt
 )
 from utils.ffmpeg_extract_audio import ffmpeg_extract_audio
 from utils.string_stuff import *
 from data.loader import main_chat_id
-from data.cache import AUDIO_URL_CACHE
+from data.cache import AUDIO_URL_CACHE, YT_AUDIO_CACHE
 import aiohttp
 
 deactivated = False
@@ -128,8 +129,9 @@ async def main(msg: Message, bot: Bot):
 
         if is_any_from_startswith(message_command, ["правило ", "правила "]):
             requested_rule = message_command[len("правило "):]
-            resulting_rule = rules[requested_rule]
-            await msg.reply(resulting_rule, parse_mode='HTML')
+            resulting_rule = rules.get(requested_rule)
+            if resulting_rule:
+                await msg.reply(resulting_rule, parse_mode='HTML')
             return
 
         if is_any_from_startswith(message_command, ["спойлеры"]):
@@ -145,39 +147,6 @@ async def main(msg: Message, bot: Bot):
                 converted_text += conversion_map.get(char, char)
             await msg.reply(f'<b><u>ЗАШИФРОВАННЫЙ В WINGDINGS ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
             return
-
-        # if is_any_from_startswith(message_command, ["расшифруй "]):
-        #     requested_text = message_command[len("расшифруй "):]
-        #     converted_text = ""
-        #     for char in requested_text:
-        #         converted_text += conversion_map_backwards.get(char, char)
-        #     await msg.reply(f'<b><u>РАСШИФРОВАННЫЙ ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
-        #     return
-        #
-        # if msg.reply_to_message and msg.reply_to_message.text:
-        #     requested_text = msg.reply_to_message.text
-        #     converted_text = ""
-        #     i = 0
-        #     #sorted_keys = sorted(conversion_map_backwards.keys(), key=len, reverse=True)
-        #     while i < len(requested_text):
-        #         matched = False
-        #         for key in conversion_map_backwards:
-        #             # Check if the substring from the current position starts with this key
-        #             if requested_text.startswith(key, i):
-        #                 converted_text += conversion_map_backwards[key]
-        #                 i += len(key)  # Move index past the matched key
-        #                 matched = True
-        #                 break  # Move to the next part of the input text
-        #
-        #         if not matched:
-        #             # If no key matched, append the current character and move one step
-        #             converted_text += requested_text[i]
-        #             i += 1
-        #
-        #     await msg.reply(f'<b><u>РАСШИФРОВАННЫЙ ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
-        #     return
-
-
 
     if deactivated:
         return
@@ -224,8 +193,10 @@ async def main(msg: Message, bot: Bot):
 
 
 
+# --- Start of changes ---
+
 #
-# extract audio from tiktok video
+# extract audio from tiktok/twitter/etc video
 #
 @router.callback_query(F.data.startswith("extract_audio:"))
 async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
@@ -234,8 +205,8 @@ async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
     logging.info(f"Callback received for message_id: {message_id}")
 
     await bot.edit_message_reply_markup(
-        chat_id=original_message.chat.id, 
-        message_id=original_message.message_id, 
+        chat_id=original_message.chat.id,
+        message_id=original_message.message_id,
         reply_markup=None
     )
 
@@ -245,45 +216,106 @@ async def handle_extract_audio(callback_query: CallbackQuery, bot: Bot):
         return
 
     video_filepath = cache_entry["filepath"]
+
+    # Re-download if file is missing
     if not os.path.exists(video_filepath):
-        await callback_query.answer("ОШИБКА.\nИСХОДНЫЙ ФАЙЛ УЖЕ УДАЛЁН.", show_alert=True)
-        return
+        await callback_query.answer("ФАЙЛ УДАЛЁН ИЗ КЕША.\nПОВТОРНО ЗАГРУЖАЮ...", show_alert=False)
+        async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0...'}) as session:
+            download_info, _ = await download_with_cobalt(session, cache_entry["original_url"], cache_entry["host"])
+            if download_info and isinstance(download_info, dict) and download_info.get('filepath'):
+                video_filepath = download_info['filepath']
+                # Update cache entry with new filepath to prevent re-downloading again
+                AUDIO_URL_CACHE[message_id]['filepath'] = video_filepath
+            else:
+                await original_message.reply("НЕ УДАЛОСЬ\nПОВТОРНО ЗАГРУЗИТЬ\nВИДЕО.")
+                return
 
     await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...\nЭТОТ ПРОЦЕСС\nМОЖЕТ ЗАНЯТЬ\nНЕКОТОРОЕ ВРЕМЯ.", show_alert=False)
-    
+
     audio_path = f"{os.path.splitext(video_filepath)[0]}.mp3"
     
     async with aiohttp.ClientSession() as session:
-        # 1. Извлекаем аудио из видео
         success = await ffmpeg_extract_audio(video_filepath, audio_path, {})
         if not success:
             await original_message.reply("НЕ УДАЛОСЬ\nИЗВЛЕЧЬ\nЗВУК.")
             return
 
-        # 2. Распознаем трек
+        # Try to recognize the song
         caption_text = await recognize_song_from_file(session, audio_path)
 
-        # 3. Получаем метаданные для заголовка аудио
+        # Get metadata for the audio title
         oembed_data = await get_tiktok_oembed_info(cache_entry["original_url"])
         metadata = {"title": "Audio", "artist": "Unknown"}
         if oembed_data:
             metadata = {"title": oembed_data.get("title"), "artist": oembed_data.get("author_name")}
 
-        # 4. Отправляем аудио с результатом
         try:
             audio_file = FSInputFile(audio_path)
+            # Send audio regardless of shazam result
             await original_message.reply_audio(
                 audio=audio_file,
                 title=metadata.get("title"),
                 performer=metadata.get("artist"),
-                caption=caption_text if caption_text else None,
+                caption=caption_text if caption_text else None, # Caption will only be added if song is recognized
                 parse_mode='HTML'
             )
         except Exception as e:
             logging.exception("An error occurred while sending extracted audio.")
             await original_message.reply(f"ПРОИЗОШЛА\nВНУТРЕННЯЯ\nОШИБКА:\n{e}")
         finally:
-            # 5. Очищаем временные файлы
+            # Clean up temp files
             await delete_temp_file(audio_path, delay=10)
             if message_id in AUDIO_URL_CACHE:
                 del AUDIO_URL_CACHE[message_id]
+
+#
+# extract audio from youtube video
+#
+@router.callback_query(F.data.startswith("extract_youtube_audio:"))
+async def handle_extract_youtube_audio(callback_query: CallbackQuery, bot: Bot):
+    message_id = int(callback_query.data.split(":", 1)[1])
+    original_message = callback_query.message
+    logging.info(f"YouTube audio extraction callback received for message_id: {message_id}")
+
+    await bot.edit_message_reply_markup(
+        chat_id=original_message.chat.id,
+        message_id=original_message.message_id,
+        reply_markup=None
+    )
+
+    cache_entry = YT_AUDIO_CACHE.get(message_id)
+    if not cache_entry:
+        await callback_query.answer("ОШИБКА.\nДАННЫЕ ИССЕЗЛИ.\nПОПРОБУЙТЕ ОТПРАВИТЬ ССЫЛКУ СНОВА.", show_alert=True)
+        return
+
+    video_filepath = cache_entry["filepath"]
+    if not os.path.exists(video_filepath):
+        await callback_query.answer("ОШИБКА.\nИСХОДНЫЙ ФАЙЛ УЖЕ УДАЛЁН.\nПОПРОБУЙТЕ ОТПРАВИТЬ ССЫЛКУ СНОВА.", show_alert=True)
+        return
+
+    await callback_query.answer("ИЗВЛЕКАЮ ЗВУК...\nЭТОТ ПРОЦЕСС\nМОЖЕТ ЗАНЯТЬ\nНЕКОТОРОЕ ВРЕМЯ.", show_alert=False)
+
+    audio_path = f"{os.path.splitext(video_filepath)[0]}.mp3"
+
+    success = await ffmpeg_extract_audio(video_filepath, audio_path, {})
+    if not success:
+        await original_message.reply("НЕ УДАЛОСЬ\nИЗВЛЕЧЬ\nЗВУК.")
+        return
+
+    try:
+        audio_file = FSInputFile(audio_path)
+        await original_message.reply_audio(
+            audio=audio_file,
+            title=cache_entry.get("title", "Audio"),
+            performer=cache_entry.get("artist", "Unknown Artist")
+        )
+    except Exception as e:
+        logging.exception("An error occurred while sending extracted YouTube audio.")
+        await original_message.reply(f"ПРОИЗОШЛА\nВНУТРЕННЯЯ\nОШИБКА:\n{e}")
+    finally:
+        # Clean up temp files
+        await delete_temp_file(audio_path, delay=10)
+        if message_id in YT_AUDIO_CACHE:
+            del YT_AUDIO_CACHE[message_id]
+
+# --- End of changes ---

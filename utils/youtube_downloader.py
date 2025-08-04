@@ -6,7 +6,9 @@ import re
 from aiogram import Bot
 from aiogram.enums import ChatAction
 from aiogram.methods import SetMessageReaction
-from aiogram.types import Message, ReactionTypeEmoji, FSInputFile
+from aiogram.types import Message, ReactionTypeEmoji, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
+
+from data.cache import YT_AUDIO_CACHE
 
 TEMP_DOWNLOAD_DIR = "temp_downloads"
 os.makedirs(TEMP_DOWNLOAD_DIR, exist_ok=True)
@@ -54,7 +56,8 @@ async def download_youtube_video(video_url: str) -> dict | None:
                     "filepath": filepath,
                     "title": info_dict.get('title', 'НЕИЗВЕСТНОЕ НАЗВАНИЕ'),
                     "duration": info_dict.get('duration', 0),
-                    "description": info_dict.get('description', '')
+                    "description": info_dict.get('description', ''),
+                    "uploader": info_dict.get('uploader', 'Unknown Artist')
                 }
             else:
                 print(f"yt-dlp failed to download or get info for {video_url}")
@@ -73,8 +76,8 @@ async def download_youtube_video(video_url: str) -> dict | None:
             os.remove(filepath)
         return None
 
-async def delete_temp_file(filepath: str):
-    await asyncio.sleep(20)
+async def delete_temp_file(filepath: str, delay: int = 20):
+    await asyncio.sleep(delay)
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
@@ -95,7 +98,7 @@ async def do_youtube(msg: Message, bot: Bot) -> bool:
 
     try:
         await bot(SetMessageReaction(chat_id=msg.chat.id, message_id=msg.message_id,
-                                 reaction=[ReactionTypeEmoji(emoji="👾")]))
+                                     reaction=[ReactionTypeEmoji(emoji="👾")]))
         await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.RECORD_VIDEO)
     except Exception as e:
         print(f"Could not set reaction: {e}")
@@ -106,7 +109,7 @@ async def do_youtube(msg: Message, bot: Bot) -> bool:
         video_file = FSInputFile(video_info['filepath'])
         caption_parts = [f"<b><u>{video_info['title']}</u></b>"]
         if video_info['description']:
-            description_escaped = video_info['description'].replace("&", "&").replace("<", "<").replace(">", ">")
+            description_escaped = video_info['description'].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
             if len(description_escaped) > 1024:
                 description_escaped = description_escaped[:1021] + "..."
             caption_parts.append(f"<blockquote expandable>{description_escaped}</blockquote>")
@@ -117,16 +120,29 @@ async def do_youtube(msg: Message, bot: Bot) -> bool:
 
         try:
             await bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.UPLOAD_VIDEO)
-            await msg.reply_video(
+            sent_message = await msg.reply_video(
                 video_file,
                 caption=final_caption,
                 parse_mode='HTML',
                 duration=video_info.get('duration')
             )
+
+            # --- Start of changes ---
+            YT_AUDIO_CACHE[sent_message.message_id] = {
+                "filepath": video_info['filepath'],
+                "title": video_info['title'],
+                "artist": video_info['uploader']
+            }
+            button = InlineKeyboardButton(text="🎧ИЗВЛЕЧЬ ЗВУК", callback_data=f"extract_youtube_audio:{sent_message.message_id}")
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+            await bot.edit_message_reply_markup(chat_id=sent_message.chat.id, message_id=sent_message.message_id, reply_markup=keyboard)
+            # --- End of changes ---
+
         except Exception as e:
             await msg.reply(f"❌ НЕ УДАЛОСЬ ОПРАВИТЬ ФАЙЛ.\n\nОШИБКА:\n{e}")
 
-        asyncio.create_task(delete_temp_file(video_info['filepath']))
+        # Don't delete immediately, wait for potential audio extraction
+        asyncio.create_task(delete_temp_file(video_info['filepath'], delay=600))
         return True
     else:
         print(f"yt-dlp failed to download video for {video_url}. Triggering fallback.")
