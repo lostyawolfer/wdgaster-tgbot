@@ -12,7 +12,7 @@ def trigger_message(triggers: dict, main_str: str, check_method: int = 0, is_adm
 
 def is_message_command(msg: str) -> str | None:
     msg = msg.lower()
-    for s in ["г!", "гастер ", "гасир", "гастур ", "гасёр ", "гангстер ", "гастрит "]:
+    for s in ["г!", "гастер ", "гасир", "гасер", "гастур ", "гасёр ", "гангстер ", "гастрит ", "гастроэнтеролог", "гастроентеролог", "гандон", "гитлер", "любитель подрочить в тени "]:
         if msg.startswith(s):
             return msg[len(s):]
 

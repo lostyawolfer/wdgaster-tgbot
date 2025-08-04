@@ -89,7 +89,7 @@ async def main(msg: Message, bot: Bot):
             await update(msg, bot)
             return
 
-        if is_any_from(message_command, ["врубись", "включись", "воскресни"]) and is_admin:
+        if is_any_from(message_command, ["врубись", "включись", "воскресни"]) and (is_admin or msg.from_user.id == 653632008):
             deactivated = False
             await msg.reply('БОТ СНОВА АКТИВЕН.')
             return
@@ -97,7 +97,7 @@ async def main(msg: Message, bot: Bot):
         if deactivated:
             return
 
-        if is_any_from(message_command, ["вырубись", "выключись", "убейся"]) and is_admin:
+        if is_any_from(message_command, ["вырубись", "выключись", "убейся"]) and (is_admin or msg.from_user.id == 653632008):
             deactivated = True
             await msg.reply('БОТ ДЕАКТИВИРОВАН.\nВКЛЮЧИТЬ: Г!ВКЛЮЧИСЬ')
             return
