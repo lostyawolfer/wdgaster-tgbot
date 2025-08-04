@@ -98,11 +98,6 @@ exact_matches_triggers = {
     # "!снимаю полномочья": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя",
     "дуэль @utdrgasterbot": "МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ ИСКЛЮЧИТЕЛЬНО\nЧТОБЫ ВОЗРОДИТЬ ТЕБЯ.",
 
-    "гастер создатель": "@LOSTYAWOLFER",
-    "гастеръ создатѣль": "@LOSTYAWOLFER",
-    "гастер кто создал": "@LOSTYAWOLFER",
-    "гастеръ кто создалъ": "@LOSTYAWOLFER",
-
     "гастер сурс код": "https://github.com/lostyawolfer/wdgaster-tgbot",
     "гастеръ сурсъ кодъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
     "гастер исходный код": "https://github.com/lostyawolfer/wdgaster-tgbot",

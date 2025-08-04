@@ -85,14 +85,12 @@ async def main(msg: Message, bot: Bot):
             else:
                 await msg.answer(text_to_repeat.upper())
 
-        if is_any_from(message_command, ["обновись", "обновить"]) and msg.from_user.id == 653632008:
+        elif is_any_from(message_command, ["обновись", "обновить"]) and msg.from_user.id == 653632008:
             await update(msg, bot)
-            return
 
-        if is_any_from(message_command, ["врубись", "включись", "воскресни"]) and (is_admin or msg.from_user.id == 653632008):
+        elif is_any_from(message_command, ["врубись", "включись", "воскресни"]) and (is_admin or msg.from_user.id == 653632008):
             deactivated = False
             await msg.reply('БОТ СНОВА АКТИВЕН.')
-            return
 
         if deactivated:
             return
@@ -100,37 +98,31 @@ async def main(msg: Message, bot: Bot):
         if is_any_from(message_command, ["вырубись", "выключись", "убейся"]) and (is_admin or msg.from_user.id == 653632008):
             deactivated = True
             await msg.reply('БОТ ДЕАКТИВИРОВАН.\nВКЛЮЧИТЬ: Г!ВКЛЮЧИСЬ')
-            return
 
-        if is_any_from(message_command, ["удали", "уничтожь"]) and (is_admin or msg.from_user.id == 653632008) and msg.reply_to_message:
+        elif is_any_from(message_command, ["удали", "уничтожь"]) and (is_admin or msg.from_user.id == 653632008) and msg.reply_to_message:
             await msg.delete()
             await msg.reply_to_message.delete()
-            return
 
-        if msg.new_chat_members:
-            await msg.reply(
-                "ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ В ЭТО\nСВОЙ ВКЛАД.\n\n------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ!\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
-            return
-
-        if is_any_from(message_command, ["команды", "помощь"]):
+        elif is_any_from(message_command, ["команды", "помощь"]):
             await msg.reply(help_text, parse_mode='HTML', disable_web_page_preview=True)
 
-        if is_any_from(message_command, ["др рп", "ссылка на др рп", "рб", "роблокс", "ссылка на рб", "ссылка на роблокс"]):
+        elif is_any_from(message_command, ["др рп", "ссылка на др рп", "рб", "роблокс", "ссылка на рб", "ссылка на роблокс"]):
             await msg.reply("НАШ СЕРВЕР:\nhttps://www.roblox.com/share?code=b01c5b9a6e97114ea80908cc1225e39d&type=Server")
-            return
 
-        if is_any_from(message_command, ["кто создал", "создатель"]):
+        elif is_any_from(message_command, ["кто создал", "создатель"]):
             await msg.reply("@LOSTYAWOLFER")
 
-        if is_any_from(message_command, ["созвать админов", "позвать админов", "позови админов", "у нас проблемы"]):
+        elif is_any_from(message_command, ["сурс код", "сурс", "исходный код", "исходник"]):
+            await msg.reply("github.com/lostyawolfer/wdgaster-tgbot")
+
+        elif is_any_from(message_command, ["созвать админов", "позвать админов", "позови админов", "у нас проблемы"]):
             await msg.reply("<b><u>ВЫЗЫВАЮ ВСЕХ АДМИНИСТРАТОРОВ</u></b>\n"
                             "ОБРАТИ ВНИМАНИЕ, ЧТО ИСПОЛЬЗОВАНИЕ ЭТОЙ КОМАНДЫ В СИТУАЦИЯХ, КОТОРЫЕ ЭТОГО НЕ ТРЕБУЮТ, КАРАЕТСЯ ВАРНОМ.\n\n"
                             "@HEHE_FITILECHEK @CRISPXMINT @AZUREOUSHUE @DAS_FICK @LITA_PENGUI @WHENIMDEAD @MASLO13KINNIE @LOSTYAWOLFER", parse_mode='HTML')
 
-        if is_any_from(message_command, ["оне/ено", "оне", "неомест", "неоместоимения"]):
+        elif is_any_from(message_command, ["оне/ено", "оне", "неомест", "неоместоимения"]):
             await msg.reply_photo(FSInputFile(os.path.join('images', 'neopronouns.png')),
                                   caption="ОНЕ/ЕНО - НЕОМЕСТОИМЕНИЕ АВТОРСТВА @LOSTYAWOLFER,\nПРИЗВАННОЕ БЫТЬ ПОЛНОЙ АЛЬТЕРНАТИВОЙ\nАНГЛИЙСКОГО \"THEY/THEM\"\nВ ЕДИНСТВЕННОМ ЧИСЛЕ.\n\nДЛЯ НЕИЗВЕСТНЫХ ЛЮДЕЙ,\nДЛЯ ЛЮДЕЙ НЕБИНАРНЫХ...\nВЫБОР ЗА ТОБОЙ.\n\nЭТОТ ЕГО ЭКСПЕРИМЕНТ\nМНЕ КАЖЕТСЯ\nОЧЕНЬ\nОЧЕНЬ\nИНТЕРЕСНЫМ.")
-            return
 
         if is_any_from_startswith(message_command, ["правило ", "правила "]):
             requested_rule = message_command[len("правило "):]
@@ -139,24 +131,34 @@ async def main(msg: Message, bot: Bot):
                 await msg.reply(resulting_rule, parse_mode='HTML')
             else:
                 await msg.reply("ТАКОГО ПРАВИЛА\nНЕ СУЩЕСТВУЕТ.")
-            return
 
-        if is_any_from_startswith(message_command, ["спойлеры"]):
+        elif is_any_from_startswith(message_command, ["спойлеры"]):
             await msg.reply(
                 "НА ДАННЫЙ МОМЕНТ,\nСПОЙЛЕРНЫЙ РЕЖИМ ОТКЛЮЧЕН.\n\nПОСЛЕДНИЙ РАЗ СПОЙЛЕРНЫЙ РЕЖИМ\nБЫЛ АКТИВЕН\n<b>13 ИЮЛЯ.</b>",
                 parse_mode='HTML')
-            return
 
-        if is_any_from_startswith(message_command, ["вингдингс "]):
+        elif is_any_from_startswith(message_command, ["вингдингс "]) and not msg.reply_to_message:
             requested_text = message_command[len("вингдингс "):]
             converted_text = ""
             for char in requested_text:
                 converted_text += conversion_map.get(char, char)
             await msg.reply(f'<b><u>ЗАШИФРОВАННЫЙ В WINGDINGS ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
-            return
+
+        elif is_any_from_startswith(message_command, ["вингдингс "]) and msg.reply_to_message:
+            requested_text = msg.reply_to_message.text
+            converted_text = ""
+            for char in requested_text:
+                converted_text += conversion_map.get(char, char)
+            await msg.reply(f'<b><u>ЗАШИФРОВАННЫЙ В WINGDINGS ТЕКСТ:</u></b>\n\n{converted_text}', parse_mode='HTML')
+
+        return
 
     if deactivated:
         return
+
+    if msg.new_chat_members:
+        await msg.reply(
+            "ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ В ЭТО\nСВОЙ ВКЛАД.\n\n------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ!\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
 
     await do_pronouns(msg, bot)
 
