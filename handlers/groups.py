@@ -61,7 +61,8 @@ async def main(msg: Message, bot: Bot):
     message_command = is_message_command(message_text.lower())
 
     if message_command:
-        if is_any_from_startswith(message_command, ["повтори "]) and (msg.from_user.id == 653632008 or msg.from_user.id == 5180987097):
+        if is_any_from_startswith(message_command, ["повтори ", """повтори
+"""]) and (msg.from_user.id == 653632008 or msg.from_user.id == 5180987097):
             await msg.delete()
             content = message_command[len("повтори "):].strip()
             delay_match = re.match(r'^((\d+)\s*([сcмm]))\s*(.*)', content.lower())
