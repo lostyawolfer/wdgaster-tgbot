@@ -174,7 +174,7 @@ async def main(msg: Message, bot: Bot):
             await do_cobalt_download(msg, bot)
         return
 
-
+    await msg.reply("код дошёл до сюда")
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
     if trigger is not None:
