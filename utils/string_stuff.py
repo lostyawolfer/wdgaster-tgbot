@@ -10,11 +10,11 @@ def trigger_message(triggers: dict, main_str: str, check_method: int = 0, is_adm
             return triggers[s]
     return None
 
-def is_message_command(msg: str) -> str | None:
-    msg = msg.lower()
+def is_message_command(msg_orig: str) -> str | None:
+    msg = msg_orig.lower()
     for s in ["г!", "гастер ", "гасир ", "гасер ", "гастур ", "гасёр ", "гангстер ", "гастрит ", "гастроэнтеролог ", "гастроентеролог ", "гандон ", "гитлер ", "любитель подрочить в тени "]:
         if msg.startswith(s):
-            return msg[len(s):]
+            return msg_orig[len(s):]
 
 def is_any_from(string: str, queries: list) -> bool:
     for s in queries:

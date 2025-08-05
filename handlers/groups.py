@@ -58,7 +58,8 @@ async def main(msg: Message, bot: Bot):
     if is_this_a_comment_section(chat_info):
         await delete_message(msg, bot, is_admin, is_decorative_admin)
 
-    message_command = is_message_command(message_text.lower())
+    message_command_original = is_message_command(message_text)
+    message_command = message_command_original.lower()
 
     if message_command:
         if is_any_from_startswith(message_command, ["повтори ", """повтори
@@ -140,7 +141,7 @@ async def main(msg: Message, bot: Bot):
 
         elif is_any_from_startswith(message_command, ["вингдингс ", '''вингдингс
 ''']):
-            requested_text = message_command[len("вингдингс "):]
+            requested_text = message_command_original[len("вингдингс "):]
             converted_text = ""
             for char in requested_text:
                 converted_text += conversion_map.get(char, char)
