@@ -61,6 +61,7 @@ async def main(msg: Message, bot: Bot):
     message_command_original = is_message_command(message_text)
     message_command = message_command_original.lower()
 
+    await msg.reply(f"message_command = {message_command}; if message_command = {message_command is not None}")
     if message_command:
         if is_any_from_startswith(message_command, ["повтори ", """повтори
 """]) and (msg.from_user.id == 653632008 or msg.from_user.id == 5180987097):
@@ -156,6 +157,7 @@ async def main(msg: Message, bot: Bot):
 
         return
 
+    await msg.reply("код дошёл до сюда (if deactivated)")
     if deactivated:
         return
 
@@ -163,8 +165,9 @@ async def main(msg: Message, bot: Bot):
         await msg.reply(
             "ПРИВЕТСТВУЮ.\n\nПО ВЕЛЕНИЮ\nНАРКОЧУЩЕГО РЫЦАРЯ\nЗДЕСЬ ВСЕ РАСКИДЫВАЮТ ЗАКЛАДКИ\nИ ОТКРЫВАЮТ ФОНТАНЫ.\n\nТЕБЕ ТОЖЕ ПРЕДСТОИТ\nСДЕЛАТЬ В ЭТО\nСВОЙ ВКЛАД.\n\n------------\n\nЯ - ВИНГ ГАСТЕР, КОРОЛЕВСКИЙ УЧЁНЫЙ!\n\nМОЖЕШЬ ДОБАВИТЬ СВОИ МЕСТОИМЕНИЯ КОМАНДОЙ +МЕСТ.\n\nЧТОБЫ УЗНАТЬ ОСТАЛЬНЫЕ МОИ ВОЗМОЖНОСТИ, НАПИШИ \"ГАСТЕР КОМАНДЫ\".\n\nНЕ ЗАБУДЬ ПОСМОТРЕТЬ ПРАВИЛА ГРУППЫ\nВ ЗАКРЕПЛЁННЫХ.")
 
-    await do_pronouns(msg, bot)
 
+    await do_pronouns(msg, bot)
+    await msg.reply("код дошёл до сюда (after do pronouns)")
 
     if get_youtube_video_id(message_text) or get_cobalt_link(message_text):
         if get_youtube_video_id(message_text):
@@ -174,7 +177,7 @@ async def main(msg: Message, bot: Bot):
             await do_cobalt_download(msg, bot)
         return
 
-    await msg.reply("код дошёл до сюда")
+
     # funny reply triggers
     trigger = trigger_message(contains_triggers, message_text.lower(), check_method=0, channel_message=msg.is_automatic_forward)
     if trigger is not None:
