@@ -96,16 +96,7 @@ exact_matches_triggers = {
     # "!снимаю полномочия": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя",
     # "!снимаю полномочiя": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя",
     # "!снимаю полномочья": "ЭТО БЫЛО\nБОЛЬШОЙ\nОШИБКОЙ.\n\nНА ВСЯКИЙ СЛУЧАЙ\nНАПОМНЮ\nКАК ПОФИКСИТЬ.\n\n!восстановить создателя",
-    "дуэль @utdrgasterbot": "МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ ИСКЛЮЧИТЕЛЬНО\nЧТОБЫ ВОЗРОДИТЬ ТЕБЯ.",
-
-    "гастер сурс код": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастеръ сурсъ кодъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастер исходный код": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастеръ исходный кодъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастер сурс": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастеръ сурсъ": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастер исходник": "https://github.com/lostyawolfer/wdgaster-tgbot",
-    "гастеръ исходникъ": "https://github.com/lostyawolfer/wdgaster-tgbot"
+    "дуэль @utdrgasterbot": "МОЯ ПОБЕДА ПРИВЕЛА К ТВОЕЙ СМЕРТИ.\nМНЕ ПРИШЛОСЬ ОТКАТЫВАТЬ РЕАЛЬНОСТЬ ИСКЛЮЧИТЕЛЬНО\nЧТОБЫ ВОЗРОДИТЬ ТЕБЯ."
 }
 
 # currently unused
